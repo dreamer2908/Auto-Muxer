@@ -2,15 +2,17 @@
 # encoding: utf-8
 
 # TODO: 
-# - write a not-so-useless readme
+# - make searchForVer at least use output_v2 [high]
+# - verify video format when searching [low]. Before the script can handle this muxing task like a human
+# - write a not-so-useless readme [medium]
+# - get ready to acept paramenters [medium]
 # - support multiple subtitles [medium]
 # - deal with patches for non-ascii filenames [medium]
 # - option to detect and remove previous muxed file, patches, blablah [low]
 # - handle character encoding mess (mostly for windows support--why do I even support windows?) [low]
-# - get ready for paramenters [low]
 # - support winrar [low]
 # DONE:
-# - writing logs [medium][done]
+# - writing logs [medium]
 
 import sys, os, time
 
@@ -26,7 +28,7 @@ repo, dummy = os.path.split(sys.argv[0])
 commonPaths = [r'/bin', r'/sbin', r'/usr/bin/', r'/usr/sbin/', r'/usr/local/bin/', r'/usr/local/sbin/', r'C:\Program Files (x86)\MKVToolNix', r'C:\Program Files\MKVToolNix', r'C:\Program Files\7-Zip',  r'C:\Program Files (x86)\7-Zip', repo]
 
 episode = 1
-version = 6
+version = 2
 baseFolder = r'F:\newlycomer\2013-fuyu\dunno\Pupa\%02d' % episode
 baseFolder = r'/media/yumi/DATA/newlycomer/2013-fuyu/dunno/Pupa/%02d/' % episode
 
@@ -49,12 +51,12 @@ terminalSupportUnicode = False
 subtitle = "Pupa ? %02d.ass" % episode
 video = "* - %02d.premux.mkv" % episode
 fonts = "fonts" # the folder containing fonts inside base folder
-chapters = "Pupa - %02d.chapters.txt" % episode
+chapters = "Pupa - %02d.chapter?.txt" % episode
 title = "Pupa - %02d" % episode
 output = "[Hue] Pupa - %02d.mkv" % episode
 output_v2 = "[Hue] Pupa - %02dv%d.mkv" % (episode, version)
 crcSeparator = " "
-finalFile = "" # don't fill here. will be generated automatically: <output><separator>[CRC].ext
+finalFile = "" # don't fill here. will be generated automatically: <output><separator>[CRC-32].ext
 
 # track languages and names
 video_Name = "H.264 720p"
@@ -138,6 +140,13 @@ def printAndLog(text):
 	if plsWriteLogs:
 		writeToLog2(text)
 
+def writeToLog2(text):
+	writeToLog(text + '\n')
+
+# Open the file in append mode and write text to it
+# File handle is kept open because re-opening the file 
+# every single time something needs writing is a bad idea
+# Flush write buffer every a while pls
 def writeToLog(text):
 	import codecs, sys, os
 	global logFile, logWriteCount
@@ -151,8 +160,7 @@ def writeToLog(text):
 		logFile.write(text)
 		logWriteCount += 1
 		if logWriteCount > 9:
-			logFile.close()
-			logFile = None
+			logFile.flush()
 			logWriteCount = 0
 	except Exception as e:
 		if sys.version_info[0] < 3:
@@ -160,9 +168,6 @@ def writeToLog(text):
 		else:
 			error = str(e)
 		print("Error! Can't write to log file: %s" % error)
-
-def writeToLog2(text):
-	writeToLog(text + '\n')
 
 def cleanUp():
 	if logFile != None:
@@ -172,6 +177,10 @@ def getInputList():
 	import sys, os
 	global fontList, video, subtitle, chapters, previousVersion, previousVersionFound, output
 
+	# Similar to fnmatch.filter, but [range] is not supported as it's useless for this purpose
+	# Moreover, fnmatch.filter breaks when the pattern contains [Group tag], which is very common
+	# It parses the pattern and converts it to regex, then use regex to match filenames
+	# No, don't attempt to reinvent the wheel and write your own matching algo
 	def patternMatching(filenames, pattern):
 		import re
 
@@ -180,23 +189,24 @@ def getInputList():
 		if not ('*' in pattern or  '?' in pattern):
 			return []
 
+		# Basically replaces "?" with ".", "*" with "(.*)", and then escapes all special characters
+		# Finally, locks the end of pattern
+		# Note: Convert the pattern to unicode string first
+		# This file is in utf-8, so you can just assume it
 		def convertPatternToRegex(pattern):
 			specialChars = '.^$*+?{}, \\[]|():=#!<'
 			regex = ''
 
-			# convert to unicode string first
-			# just assume all utf-8 -- this file is in this encoding anyway
 			if hasattr(pattern, 'decode'):
-				pattern = pattern.decode('utf-8')
+				pattern = pattern.decode('utf-8') 
 
 			# parse pattern
 			for i in range(len(pattern)):
 				char = pattern[i]
-				if char == '*' or char == '?':
-					if char == '?':
-						regex += '.'
-					elif char == '*':
-						regex += '(.*)'
+				if char == '?':
+					regex += '.'
+				elif char == '*':
+					regex += '(.*)'
 				else:
 					# escape stuff
 					if char in specialChars:
@@ -204,7 +214,6 @@ def getInputList():
 					regex += char
 					if i == len(pattern) - 1: # end of pattern. Fixed a bug that made pattern blablah*.mkv match blablah.mkv.pass
 						regex += '$'
-
 			return regex
 
 		regPattern = convertPatternToRegex(pattern)
@@ -222,6 +231,15 @@ def getInputList():
 
 		return matchingFname
 
+	# Return value: (Found filename / None if not found, Did the pattern work?)
+	# It reads the base folder's content and returns the first one matching the input pattern
+	# If none matches, it selects candidates based on their extentions and verifies their format
+	# The first valid one is chosen as usual
+	# Currently:
+	# inputType: 1 = video, 2 = subtitles, 3 = chapters
+	# Chapters: .txt and its content starts with 'CHAPTER'; or .xml and '<?xml'
+	# Subtitles: .ass and '﻿[Script Info]'
+	# Video: ext the same as pattern, .mp4, .mkv. Format verification hasn't been implenented yet.
 	def searchForInputs(baseFolder, pattern, inputType):
 		import sys, os, fnmatch, codecs
 
@@ -232,27 +250,28 @@ def getInputList():
 				return filenames1[0], True
 
 			if inputType == 3: # chapters
-				filenames2 = fnmatch.filter(filenames, '*.txt') + fnmatch.filter(filenames, '*.xml')
+				filenames2 = fnmatch.filter(filenames, '*.txt') + fnmatch.filter(filenames, '*.xml') + fnmatch.filter(filenames, '*.TXT') + fnmatch.filter(filenames, '*.XML')
 				for fname in filenames2:
 					f = codecs.open(os.path.join(dirpath, fname), "r", "utf-8")
 					content = f.readline()
 					f.close()
-					if fname.endswith('.txt') and content.startswith(u'CHAPTER'):
+					if fname.lower().endswith('.txt') and content.startswith(u'CHAPTER'):
 						return fname, False
-					elif fname.endswith('.xml') and content.startswith(u'<?xml'):
+					elif fname.lower().endswith('.xml') and content.startswith(u'<?xml'):
 						return fname, False
 			elif inputType == 2: # subtitle
-				filenames2 = fnmatch.filter(filenames, '*.ass') + fnmatch.filter(filenames, '*.xml')
+				filenames2 = fnmatch.filter(filenames, '*.ass') + fnmatch.filter(filenames, '*.ASS')
 				for fname in filenames2:
 					f = codecs.open(os.path.join(dirpath, fname), "r", "utf-8")
 					content = f.readline()
 					f.close()
-					if fname.endswith('.ass') and content.startswith(u'﻿[Script Info]'):
+					if fname.lower().endswith('.ass') and content.startswith(u'﻿[Script Info]'):
 						return fname, False
 			elif inputType == 1: # video
 				namae, ext = os.path.splitext(pattern)
 				# prefer file with the same ext as pattern
-				if ext.startswith('.'):
+				# if valid ext should start with a dot
+				if ext.startswith('.'): 
 					filenames3 = fnmatch.filter(filenames, '*' + ext)
 				else:
 					filenames3 = []
@@ -260,8 +279,9 @@ def getInputList():
 				if len(filenames3) > 0: 
 					return filenames3[0], False
 			break
-		return False, False
+		return None, False
 
+	# TODO: make it use pattern specified in output_v2
 	def searchForVer(baseFolder, baseName, wantedVer):
 		for (dirpath, dirnames, filenames) in os.walk(baseFolder):
 			namae, ext = os.path.splitext(baseName)
@@ -284,7 +304,7 @@ def getInputList():
 		printAndLog('Found video file: %s.' % video)
 	else:
 		result, pattern = searchForInputs(baseFolder, video, 1)
-		if result == False:
+		if result == None:
 			printAndLog('Video file not found.')
 			error = True
 		else:
@@ -299,7 +319,7 @@ def getInputList():
 		printAndLog('Found subtitle file: %s.' % subtitle)
 	else:
 		result, pattern = searchForInputs(baseFolder, subtitle, 2)
-		if result == False:
+		if result == None:
 			printAndLog('Subtitle file not found.')
 			error = True
 		else:
@@ -314,7 +334,7 @@ def getInputList():
 		printAndLog('Found chapter file: %s.' % chapters)
 	else:
 		result, pattern = searchForInputs(baseFolder, chapters, 3)
-		if result == False:
+		if result == None:
 			printAndLog('Chapter file not found.')
 			warning = True
 		else:
@@ -326,6 +346,7 @@ def getInputList():
 			chapters = result
 
 	# fonts
+	# don't bother to verify them
 	path = os.path.join(baseFolder, fonts)
 	for (dirpath, dirnames, filenames) in os.walk(path):
 		for fname in filenames:
@@ -356,7 +377,7 @@ def getInputList():
 
 	if error:
 		printAndLog('Error: Important input(s) not found. Job cancelled.\n')
-		sys.exit(-1)
+		sys.exit(1)
 
 	printAndLog(' ')
 
@@ -413,6 +434,7 @@ def generateMuxCmd():
 		tmp += '"%s" ' % p
 	writeToLog2(tmp)
 
+# executes given task and return console output, return code and error message if any
 def executeTask(params, taskName = ''):
 	import subprocess, sys
 	if taskName != '':
@@ -427,29 +449,37 @@ def executeTask(params, taskName = ''):
 		execOutput = e.output
 		returnCode = e.returncode
 		error = True
-	if sys.stdout.encoding != None:
+	if sys.stdout.encoding != None: # It's None when debugging in Sublime Text
 		execOutput = execOutput.decode(sys.stdout.encoding)
 
 	return execOutput, returnCode, error
 
 def addCrc32():
-	import zlib, shutil, os, sys
+	import shutil, os
 	global finalFile
 
+	# Opens the file in binary reading mode, reads data block by block and updates crc32 hash
+	# The final crc32 got by hashing block by block is the same as hashing the whole file at once
+	# Same for md4, md5, sha-1, etc.
+	# Python 2.x might return negative crc32. Just add 2^32 to it in that case. 
+	# Comfirmed correct by hashing hundreds of files
 	def crc32v2(fileName):
+		import zlib, sys
 
 		fileSize = os.path.getsize(fileName)
 		blockSize = 2 * 1024 * 1024
-		crc = 0
+		crc32 = 0
 		
 		try:
 			fd = open(fileName, 'rb')
 			while True:
 				buffer = fd.read(blockSize)
-				if len(buffer) == 0: # EOF or file empty. return hashes
+				if len(buffer) == 0: # EOF or file empty. return hash
 					fd.close()
-					return crc, 0, False
-				crc = zlib.crc32(buffer, crc)
+					if sys.version_info[0] < 3 and crc32 < 0:
+						crc32 += 2 ** 32
+					return '%08X' % crc32, False
+				crc32 = zlib.crc32(buffer, crc32)
 
 		except Exception as e:
 			if sys.version_info[0] < 3:
@@ -458,17 +488,8 @@ def addCrc32():
 				error = str(e)
 			return 0, error
 
-	def crc32_s(fileName):
-		iHash, returnCode, error = crc32v2(fileName)
-		if sys.version_info[0] < 3 and iHash < 0:
-			iHash += 2 ** 32
-		sHash = '%08X' % iHash
-		return sHash, error
-
 	oldPath = os.path.join(baseFolder, output)
-
-	sHash, error = crc32_s(oldPath)
-
+	sHash, error = crc32v2(oldPath)
 	namae, ext = os.path.splitext(oldPath)
 	newName = namae + crcSeparator + "[%s]" % sHash + ext
 	try:
@@ -477,9 +498,42 @@ def addCrc32():
 	except:
 		doNothing = 1
 
+# Dear maintainer (probably myself), if you're working on this function, please spend some time on the EOL problem.
+# Windows uses \r\n, Unix/Linux uses \n, and Mac OS uses \r for EOL. 
+# If applying scripts doesn't use the correct EOL, they might NOT work at all.
+# The base scripts bundled with AutoMuxer should use the correct EOL (I did it manually). 
+# For some reasons beyond my current knowledge about Python, output scripts used the correct EOL, too.
+# Weren't they supposed to use system EOL, which was Unix \n as I was running LinuxMint 16 XFCE edition x86_64?
+# I tested this on Python 2.7.5 and 3.3.2; they gave identical results. Magic?!
+# Updated: tested on Python 3.3.3 and Windows 7 x64. Also "magic".
+# If you're also working on Yet Another xdelta-based Patch Creator, pls take care of this problem as well.
+# As the time I was writing this, YAXBPC used Unix EOL for Mac OS script, and Linux script was out-of-date.
+#
+# One more thing to bother you: patches for files with non-ASCII name. 
+# For pure ASCII filenames, patches work fine, and cross-platform. # For non-ASCII filenames, well, they don't. 
+# In YAXBPC, I made simpler version of applying script for non-ASCII filenames.
+# As you can (or can't) see, I use paramenter "-A" to set the application specific header in output vcdiff file.
+# It should contain source and target filenames (and no path). If you run "xdelta3 -d changes.vcdiff" 
+# (no source/target specified), xdelta3 will use the filenames stored in changes.vcdiff.
+# Looks good? It does *look* good, but isn't actually good. xdelta3 doesn't store and load filenames 
+# using the same encoding cross-platform. In Windows, it uses UTF-16 (wide char); in Unix/Linux, it uses UTF-8;
+# I have no idea about Mac OS, but it might be another one. This is a mess, really.
+# Patches created on Unix won't work on Windows, and blablah. However, I came with a few "solution": 
+# - For Windows script, encode it in UTF-8 without BOM, and put "chcp 65001" at the beginning. 
+# This will tell the command prompt to switch to UTF-8 encoding, and so, it reads UTF-8 file fine.
+# You can just use the normal script for this. The downside is that code page 65001 is buggy; I have no idea
+# if it works on multiply version of Windows.
+# - For Linux/Mac OS, make a Python script to apply. It's Python, so everything can be done nicely. 
+# Most distro should have Python installed, so it's fine. # On the other hand, most Windows installations 
+# don't have Python installed. So bad. I haven't tested if UTF-8 shell scripts works yet.
+# Maybe you can just throw 9001 scripts in and tell users to try until it works ┐(´～`；)┌
+# Rewrite comments here while you're working pls
 def createPatch():
 	import os, codecs, shutil
 
+	# Open pre-made applying scripts; replace '%basefile%' and '%patchedfile%';
+	# and then save it to output folder
+	# Copy xdelta3 binaries, too
 	def generateApplyScripts(outputFolder, baseFile, patchedFile):
 
 		applyScripts = ['apply_patch_linux.sh', 'apply_patch_mac.command', 'apply_patch_windows.bat']
@@ -504,6 +558,7 @@ def createPatch():
 			targ = os.path.join(outputFolder, b)
 			shutil.copy2(source, targ)
 
+	# See the wall of text above
 	def createPatchSub(outputFolder, baseFile, patchedFile):
 		try:
 			shutil.rmtree(outputFolder, True)
@@ -557,6 +612,7 @@ def packFiles():
 	if not plsPackStuff: return
 
 	def packFilesSub(baseFolder, filenames, archive):
+		# 7z [options] command input(s)
 		zparams = [sevenzipPath, '-aoa', '-mx7', 'a']
 		zoutput = os.path.join(baseFolder, archive)
 		zparams.append(zoutput)
@@ -566,7 +622,7 @@ def packFiles():
 		try:
 			os.remove(zoutput) # attempt delete output file to prevent 7z from adding files to it
 		except:
-			doNothing = 1			
+			doNothing = 1
 		executeTask(zparams)
 
 	if len(subtitleArchive) > 0:
@@ -582,35 +638,7 @@ def packFiles():
 		if patchUndoMux_Created: fileList.append(patchUndoMux_FolderName)
 		packFilesSub(baseFolder, fileList, patchAllArchive)
 
-# Dear maintainer (probably myself), if you're working on this function, please spend some time on the EOL problem.
-# Windows uses \r\n, Unix/Linux uses \n, and Mac OS uses \r for EOL. 
-# If applying scripts doesn't use the correct EOL, they might NOT work at all.
-# The base scripts bundled with AutoMuxer should use the correct EOL (I did it manually). 
-# For some reasons beyond my current knowledge about Python, output scripts used the correct EOL, too.
-# Weren't they supposed to use system EOL, which was Unix \n as I was running LinuxMint 16 XFCE edition x86_64?
-# I tested this on Python 2.7.5 and 3.3.2; they gave identical results. Magic?!
-# If you're also working on Yet Another xdelta-based Patch Creator, pls take care of this problem as well.
-# As the time I was writing this, YAXBPC used Unix EOL for Mac OS script, and Linux script was out-of-date.
-#
-# One more thing to bother you: patches for files with non-ASCII name. 
-# For pure ASCII filenames, patches work fine, and cross-platform. # For non-ASCII filenames, well, they don't. 
-# In YAXBPC, I made simpler version of applying script for non-ASCII filenames.
-# As you can (or can't) see, I use paramenter "-A" to set the application specific header in output vcdiff file.
-# It should contain source and target filenames (and no path). If you run "xdelta3 -d changes.vcdiff" 
-# (no source/target specified), xdelta3 will use the filenames stored in changes.vcdiff.
-# Looks good? It does *look* good, but isn't actually good. xdelta3 doesn't store and load filenames 
-# using the same encoding cross-platform. In Windows, it uses UTF-16 (wide char); in Unix/Linux, it uses UTF-8;
-# I have no idea about Mac OS, but it might be another one. This is a mess, really.
-# Patches created on Unix won't work on Windows, and blablah. However, I came with a few "solution": 
-# - For Windows script, encode it in UTF-8 without BOM, and put "chcp 65001" at the beginning. 
-# This will tell the command prompt to switch to UTF-8 encoding, and so, it reads UTF-8 file fine.
-# You can just use the normal script for this. The downside is that code page 65001 is buggy; I have no idea
-# if it works on multiply version of Windows.
-# - For Linux/Mac OS, make a Python script to apply. It's Python, so everything can be done nicely. 
-# Most distro should have Python installed, so it's fine. # On the other hand, most Windows installations 
-# don't have Python installed. So bad. I haven't tested if UTF-8 shell scripts works yet.
-# Maybe you can just throw 9001 scripts in and tell users to try until it works ┐(´～`；)┌
-
+# ED2K is a pain because of its fixed-size chunk
 def hasher(fileName):
 	import math, os, sys, hashlib, zlib
 
@@ -625,7 +653,7 @@ def hasher(fileName):
 	enableSha512 = True
 	enableEd2k = True
 
-	crc = 0
+	crc32 = 0
 	md4 = hashlib.new('md4')
 	md5 = hashlib.md5()
 	sha1 = hashlib.sha1()
@@ -657,11 +685,11 @@ def hasher(fileName):
 				else:
 					ed2kHash = ed2kEndHash.hexdigest()
 
-				if sys.version_info[0] < 3 and crc < 0:
-					crc += 2 ** 32
-				return crc, md4.hexdigest().upper(), md5.hexdigest().upper(), sha1.hexdigest().upper(), sha256.hexdigest().upper(), sha512.hexdigest().upper(), ed2kHash.upper(), False
+				if sys.version_info[0] < 3 and crc32 < 0:
+					crc32 += 2 ** 32
+				return '%08X' % crc32, md4.hexdigest().upper(), md5.hexdigest().upper(), sha1.hexdigest().upper(), sha256.hexdigest().upper(), sha512.hexdigest().upper(), ed2kHash.upper(), False
 
-			if enableCrc: crc = zlib.crc32(buffer, crc)
+			if enableCrc: crc32 = zlib.crc32(buffer, crc32)
 			if enableMd4: md4.update(buffer)
 			if enableMd5: md5.update(buffer)
 			if enableSha1: sha1.update(buffer)
@@ -698,21 +726,14 @@ def hasher(fileName):
 			error = unicode(e)
 		else:
 			error = str(e)
-		return 0, '', '', '', '', '', '', error
-
-def hasher_s(fileName):
-	iHash, md4, md5, sha1, sha256, sha512, ed2k, error = hasher(fileName)
-	if sys.version_info[0] < 3 and iHash < 0:
-		iHash += 2 ** 32
-	sHash = '%08X' % iHash
-	return sHash, md4, md5, sha1, sha256, sha512, ed2k, error
+		return '00000000', '', '', '', '', '', '', error
 
 def printFileInfo():
 	import os
 
 	fileSize = os.path.getsize(finalFile)
 	dummy, name = os.path.split(finalFile)
-	crc32, md4, md5, sha1, sha256, sha512, ed2k, error = hasher_s(finalFile)
+	crc32, md4, md5, sha1, sha256, sha512, ed2k, error = hasher(finalFile)
 
 	if error == False:
 		printAndLog('Filename: %s' % name)
@@ -846,7 +867,7 @@ if stopAfterMuxing:
 	printAndLog('\nStopped by user request.')
 	sys.exit()
 
-# adding CRC
+# adding CRC-32
 if plsAddCrc:
 	printAndLog('Adding CRC-32...')
 	startTime = defaultTimer()	
@@ -880,7 +901,7 @@ infoTime = endTime - startTime
 
 printAndLog(' ') # new line.
 printAndLog('Muxing took %0.3f seconds.' % muxTime)
-printAndLog('Adding CRC took %0.3f seconds.' % crcTime)
+printAndLog('Adding CRC-32 took %0.3f seconds.' % crcTime)
 printAndLog('Patching took %0.3f seconds.' % patchTime)
 printAndLog('Packing took %0.3f seconds.' % packTime)
 printAndLog('Getting info took %0.3f seconds.' % infoTime)
