@@ -26,7 +26,7 @@ repo, dummy = os.path.split(sys.argv[0])
 commonPaths = [r'/bin', r'/sbin', r'/usr/bin/', r'/usr/sbin/', r'/usr/local/bin/', r'/usr/local/sbin/', r'C:\Program Files (x86)\MKVToolNix', r'C:\Program Files\MKVToolNix', r'C:\Program Files\7-Zip',  r'C:\Program Files (x86)\7-Zip', repo]
 
 episode = 1
-version = 4
+version = 6
 baseFolder = r'F:\newlycomer\2013-fuyu\dunno\Pupa\%02d' % episode
 baseFolder = r'/media/yumi/DATA/newlycomer/2013-fuyu/dunno/Pupa/%02d/' % episode
 
@@ -46,15 +46,23 @@ cpuCount = 1
 terminalSupportUnicode = False
 
 # pattern-based filename searching has been implemented, but hasn't been tested much.
-script = 'Pupa ? %02d.ass' % episode
-video = '* - %02d.premux.mkv' % episode
-fonts = 'fonts' # the folder containing fonts inside base folder
-chapters = 'Pupa - %02d.chapters.txt' % episode
-title = 'Pupa - %02d' % episode
-output = '[Hue] Pupa - %02d.mkv' % episode
-output_v2 = '[Hue] Pupa - %02dv%d.mkv' % (episode, version)
-crcSeparator = ' '
-finalFile = '' # don't fill here. will be generated automatically: <output><separator>[CRC].ext
+subtitle = "Pupa ? %02d.ass" % episode
+video = "* - %02d.premux.mkv" % episode
+fonts = "fonts" # the folder containing fonts inside base folder
+chapters = "Pupa - %02d.chapters.txt" % episode
+title = "Pupa - %02d" % episode
+output = "[Hue] Pupa - %02d.mkv" % episode
+output_v2 = "[Hue] Pupa - %02dv%d.mkv" % (episode, version)
+crcSeparator = " "
+finalFile = "" # don't fill here. will be generated automatically: <output><separator>[CRC].ext
+
+# track languages and names
+video_Name = "H.264 720p"
+video_Lang = "jpn"
+audio_Name = "AAC LC 2.0"
+audio_Lang = "jpn"
+subtitle_Name = "Powered by Engrish(tm)"
+subtitle_Lang = "eng"
 
 previousVersion = '' # will be searched for automatically
 previousVersionFound = False
@@ -66,7 +74,7 @@ patchv2_Created = False
 patchMux_Created = False
 patchUndoMux_Created = False
 
-scriptArchive = '[Hue] Pupa - %02d [sub].7z' % episode
+subtitleArchive = '[Hue] Pupa - %02d [sub].7z' % episode
 patchRawArchive = patchMux_FolderName + '.7z'
 patchv2Archive = patchv2_FolderName + '.7z'
 patchAllArchive = 'patch_ep_%02d_all.7z' % episode
@@ -162,7 +170,7 @@ def cleanUp():
 
 def getInputList():
 	import sys, os
-	global fontList, video, script, chapters, previousVersion, previousVersionFound, output
+	global fontList, video, subtitle, chapters, previousVersion, previousVersionFound, output
 
 	def patternMatching(filenames, pattern):
 		import re
@@ -233,7 +241,7 @@ def getInputList():
 						return fname, False
 					elif fname.endswith('.xml') and content.startswith(u'<?xml'):
 						return fname, False
-			elif inputType == 2: # script
+			elif inputType == 2: # subtitle
 				filenames2 = fnmatch.filter(filenames, '*.ass') + fnmatch.filter(filenames, '*.xml')
 				for fname in filenames2:
 					f = codecs.open(os.path.join(dirpath, fname), "r", "utf-8")
@@ -287,20 +295,20 @@ def getInputList():
 				printAndLog('Found video file: %s.' % result)
 			video = result
 
-	if os.path.isfile(os.path.join(baseFolder, script)):
-		printAndLog('Found script file: %s.' % script)
+	if os.path.isfile(os.path.join(baseFolder, subtitle)):
+		printAndLog('Found subtitle file: %s.' % subtitle)
 	else:
-		result, pattern = searchForInputs(baseFolder, script, 2)
+		result, pattern = searchForInputs(baseFolder, subtitle, 2)
 		if result == False:
-			printAndLog('Script file not found.')
+			printAndLog('Subtitle file not found.')
 			error = True
 		else:
 			if not pattern: 
-				printAndLog('Script file "%s" not found, but found "%s".' % (script, result))
+				printAndLog('Subtitle file "%s" not found, but found "%s".' % (subtitle, result))
 				searched = True
 			else:
-				printAndLog('Found script file: %s.' % result)
-			script = result
+				printAndLog('Found subtitle file: %s.' % result)
+			subtitle = result
 
 	if os.path.isfile(os.path.join(baseFolder, chapters)):
 		printAndLog('Found chapter file: %s.' % chapters)
@@ -366,22 +374,22 @@ def generateMuxCmd():
 	muxParams.append(os.path.join(baseFolder, output))
 
 	# video
-	tmp = ["--language", "0:jpn", "--track-name", "0:H.264 720p", "--default-track", "0:yes", "--forced-track", "0:no", "--language", "1:jpn", "--track-name", "1:AAC LC 2.0", "--default-track", "1:yes", "--forced-track", "1:no", "-a", "1", "-d", "0" ] # copy audio track 1 & video track 0 from premux
-	tmp += ["-S", "-T", "-M", "--no-global-tags"] # remove subtitles -S, track specific tags -T, attachments -M tags --no-global-tags
+	tmp = ["--language", "0:%s" % video_Lang, "--track-name", "0:%s" % video_Name, "--default-track", "0:yes", "--forced-track", "0:no", "--language", "1:%s" % audio_Lang, "--track-name", "1:%s" % audio_Name, "--default-track", "1:yes", "--forced-track", "1:no", "-a", "1", "-d", "0" ] # copy audio track 1 & video track 0 from premux
+	tmp += ["-S", "-T", "-M", "--no-global-tags"] # remove subtitle -S, track specific tags -T, attachments -M tags --no-global-tags
 	if chapterFileExists:
 		tmp.append("--no-chapters") # and chapters if we got chapters
 	muxParams = muxParams + tmp
 	muxParams.append(os.path.join(baseFolder, video))
 
-	# script
-	tmp = ["--language", "0:vie", "--track-name", "0:Ani4free", "--default-track", "0:yes", "--forced-track", "0:no", "--compression", "0:zlib", "-s", "0"]
-	tmp += ["-D", "-A", "-T", "--no-global-tags", "--no-chapters"] # don't remove subtitles or attachments
+	# subtitle
+	tmp = ["--language", "0:%s" % subtitle_Lang, "--track-name", "0:%s" % subtitle_Name, "--default-track", "0:yes", "--forced-track", "0:no", "--compression", "0:zlib", "-s", "0"]
+	tmp += ["-D", "-A", "-T", "--no-global-tags", "--no-chapters"] # don't remove subtitle or attachments
 	muxParams = muxParams + tmp
-	muxParams.append(os.path.join(baseFolder, script))
+	muxParams.append(os.path.join(baseFolder, subtitle))
 
 	# track order
 	muxParams.append("--track-order")
-	muxParams.append("0:0,0:1,1:0") # track 0 (video) from file 0 (premux) > track 1 (audio) > track 0 from file 1 (script)
+	muxParams.append("0:0,0:1,1:0") # track 0 (video) from file 0 (premux) > track 1 (audio) > track 0 from file 1 (subtitle)
 
 	# fonts
 	for i in range(len(fontList)):
@@ -472,11 +480,11 @@ def addCrc32():
 def createPatch():
 	import os, codecs, shutil
 
-	def generateScript(outputFolder, baseFile, patchedFile):
+	def generateApplyScripts(outputFolder, baseFile, patchedFile):
 
-		scripts = ['apply_patch_linux.sh', 'apply_patch_mac.command', 'apply_patch_windows.bat']
+		applyScripts = ['apply_patch_linux.sh', 'apply_patch_mac.command', 'apply_patch_windows.bat']
 
-		for s in scripts:
+		for s in applyScripts:
 			base = os.path.join(repo, s)
 			targ = os.path.join(outputFolder, s)
 			if os.path.isfile(base):
@@ -512,7 +520,7 @@ def createPatch():
 		xparams.append(os.path.join(outputFolder, 'changes.vcdiff'))
 
 		log, returnCode, error = executeTask(xparams)
-		generateScript(outputFolder, baseFileName, patchedFileName)
+		generateApplyScripts(outputFolder, baseFileName, patchedFileName)
 		# return True if error occurs, and False if it works
 		if not error:
 			return False
@@ -561,8 +569,8 @@ def packFiles():
 			doNothing = 1			
 		executeTask(zparams)
 
-	if len(scriptArchive) > 0:
-		packFilesSub(baseFolder, [script, fonts], scriptArchive)
+	if len(subtitleArchive) > 0:
+		packFilesSub(baseFolder, [subtitle, fonts], subtitleArchive)
 	if len(patchRawArchive) > 0 and patchMux_Created:
 		packFilesSub(baseFolder, [patchMux_FolderName], patchRawArchive)
 	if len(patchv2Archive) > 0 and version > 1 and patchv2_Created:
@@ -858,7 +866,7 @@ patchTime = endTime - startTime
 
 # packing
 startTime = defaultTimer()
-printAndLog('Packing script and patches...')
+printAndLog('Packing subtitle and patches...')
 packFiles()
 endTime = defaultTimer()
 packTime = endTime - startTime
