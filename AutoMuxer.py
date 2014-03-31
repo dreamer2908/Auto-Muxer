@@ -2,13 +2,15 @@
 # encoding: utf-8
 
 # TODO: 
-# - writing logs [medium][ongoing]
+# - write a not-so-useless readme
 # - support multiple subtitles [medium]
-# - option to detect and remove previous muxed file, patches, blablah [low]
 # - deal with patches for non-ascii filenames [medium]
+# - option to detect and remove previous muxed file, patches, blablah [low]
 # - handle character encoding mess (mostly for windows support--why do I even support windows?) [low]
 # - get ready for paramenters [low]
 # - support winrar [low]
+# DONE:
+# - writing logs [medium][done]
 
 import sys, os, time
 
@@ -19,13 +21,14 @@ programAuthor = "dreamer2908"
 # specify these 3 if application not found error occurs
 mkvmergePath = 'mkvmerge'
 xdelta3Path = 'xdelta3'
-sevenzip = '7z'
+sevenzipPath = '7z'
 repo, dummy = os.path.split(sys.argv[0])
 commonPaths = [r'/bin', r'/sbin', r'/usr/bin/', r'/usr/sbin/', r'/usr/local/bin/', r'/usr/local/sbin/', r'C:\Program Files (x86)\MKVToolNix', r'C:\Program Files\MKVToolNix', r'C:\Program Files\7-Zip',  r'C:\Program Files (x86)\7-Zip', repo]
 
 episode = 1
-version = 8
+version = 4
 baseFolder = r'F:\newlycomer\2013-fuyu\dunno\Pupa\%02d' % episode
+baseFolder = r'/media/yumi/DATA/newlycomer/2013-fuyu/dunno/Pupa/%02d/' % episode
 
 dontMux = False
 stopAfterMuxing = False
@@ -35,7 +38,8 @@ verbose = True
 plsWriteLogs = True
 logFile = None
 logFileName = 'muxing_log.txt'
-logWritten = 0
+logWriteCount = 0
+logInAppFolder = True
 
 defaultTimer = None
 cpuCount = 1
@@ -80,7 +84,7 @@ muxParams = []
 # detect mkvmerge, 7z, xdelta3 location
 def detectPaths():
 	import os, sys
-	global mkvmergePath, xdelta3Path, sevenzip
+	global mkvmergePath, xdelta3Path, sevenzipPath
 
 	def is_exe(fpath):
 		if os.path.isfile(fpath):
@@ -111,33 +115,37 @@ def detectPaths():
 	# try the specified paths
 	mkvmergePath = search_exec('mkvmerge', mkvmergePath)
 	xdelta3Path = search_exec('xdelta3', xdelta3Path)
-	sevenzip = search_exec('7z', sevenzip)
+	sevenzipPath = search_exec('7z', sevenzipPath)
 
 	# failback to 7za if 7z not found. Not sure if this scenary even exists
-	if sevenzip == None:
-		sevenzip = search_exec('7za', '7za')
+	if sevenzipPath == None:
+		sevenzipPath = search_exec('7za', '7za')
 
-	if mkvmergePath == None or xdelta3Path == None or sevenzip == None:
+	if mkvmergePath == None or xdelta3Path == None or sevenzipPath == None:
 		return False # not found
 	return True # all OK
 
-def printAndWriteLog(text):
+def printAndLog(text):
 	print(text)
 	if plsWriteLogs:
 		writeToLog2(text)
 
 def writeToLog(text):
-	import codecs, sys
-	global logFile, logWritten
+	import codecs, sys, os
+	global logFile, logWriteCount
+
+	if not plsWriteLogs:
+		return
 
 	try:
 		if logFile == None:
 			logFile = codecs.open(logFileName, 'a', 'utf-8')
 		logFile.write(text)
-		logWritten += 1
-		if logWritten % 5 == 0:
+		logWriteCount += 1
+		if logWriteCount > 9:
 			logFile.close()
 			logFile = None
+			logWriteCount = 0
 	except Exception as e:
 		if sys.version_info[0] < 3:
 			error = unicode(e)
@@ -149,7 +157,8 @@ def writeToLog2(text):
 	writeToLog(text + '\n')
 
 def cleanUp():
-	logFile.close()
+	if logFile != None:
+		logFile.close()
 
 def getInputList():
 	import sys, os
@@ -258,54 +267,54 @@ def getInputList():
 			break
 		return ''
 
-	printAndWriteLog('Gathering inputs...')
+	printAndLog('Gathering inputs...')
 	error = False
 	warning = False
 	searched = False
 
 	if os.path.isfile(os.path.join(baseFolder, video)):
-		printAndWriteLog('Found video file: %s.' % video)
+		printAndLog('Found video file: %s.' % video)
 	else:
 		result, pattern = searchForInputs(baseFolder, video, 1)
 		if result == False:
-			printAndWriteLog('Video file not found.')
+			printAndLog('Video file not found.')
 			error = True
 		else:
 			if not pattern: 
-				printAndWriteLog('Video file "%s" not found, but found "%s".' % (video, result))
+				printAndLog('Video file "%s" not found, but found "%s".' % (video, result))
 				searched = True
 			else:
-				printAndWriteLog('Found video file: %s.' % result)
+				printAndLog('Found video file: %s.' % result)
 			video = result
 
 	if os.path.isfile(os.path.join(baseFolder, script)):
-		printAndWriteLog('Found script file: %s.' % script)
+		printAndLog('Found script file: %s.' % script)
 	else:
 		result, pattern = searchForInputs(baseFolder, script, 2)
 		if result == False:
-			printAndWriteLog('Script file not found.')
+			printAndLog('Script file not found.')
 			error = True
 		else:
 			if not pattern: 
-				printAndWriteLog('Script file "%s" not found, but found "%s".' % (script, result))
+				printAndLog('Script file "%s" not found, but found "%s".' % (script, result))
 				searched = True
 			else:
-				printAndWriteLog('Found script file: %s.' % result)
+				printAndLog('Found script file: %s.' % result)
 			script = result
 
 	if os.path.isfile(os.path.join(baseFolder, chapters)):
-		printAndWriteLog('Found chapter file: %s.' % chapters)
+		printAndLog('Found chapter file: %s.' % chapters)
 	else:
 		result, pattern = searchForInputs(baseFolder, chapters, 3)
 		if result == False:
-			printAndWriteLog('Chapter file not found.')
+			printAndLog('Chapter file not found.')
 			warning = True
 		else:
 			if not pattern: 
-				printAndWriteLog('Chapter file "%s" not found, but found "%s".' % (chapters, result))
+				printAndLog('Chapter file "%s" not found, but found "%s".' % (chapters, result))
 				searched = True
 			else:
-				printAndWriteLog('Found chapter file: %s.' % result)
+				printAndLog('Found chapter file: %s.' % result)
 			chapters = result
 
 	# fonts
@@ -315,12 +324,12 @@ def getInputList():
 			fontList.append(os.path.join(dirpath, fname))
 			fontList_Name.append(fname)
 	if len(fontList_Name) > 0:
-		printAndWriteLog('Found %d font file(s).' % len(fontList_Name))
+		printAndLog('Found %d font file(s).' % len(fontList_Name))
 		for name in fontList_Name:
 			writeToLog('"' + name + '" ')
 		writeToLog('\n')
 	else:
-		printAndWriteLog('No font files found.')
+		printAndLog('No font files found.')
 		error = True
 
 	# previous version
@@ -332,23 +341,23 @@ def getInputList():
 			previousVersionFound = True
 
 	if previousVersionFound:
-		printAndWriteLog('Found previous version: %s.' % previousVersion)
+		printAndLog('Found previous version: %s.' % previousVersion)
 
 	if searched:
-		printAndWriteLog('Warning: Certain specified file(s) not found, but alternative(s) found. Please check if they are the correct ones.')
+		printAndLog('Warning: Certain specified file(s) not found, but alternative(s) found. Please check if they are the correct ones.')
 
 	if error:
-		printAndWriteLog('Error: Important input(s) not found. Job cancelled.\n')
+		printAndLog('Error: Important input(s) not found. Job cancelled.\n')
 		sys.exit(-1)
 
-	print(' ')
+	printAndLog(' ')
 
 def generateMuxCmd():
 	import os
 	global muxParams
 
 	muxParams = [mkvmergePath]
-	print('Generating muxing command...')
+	printAndLog('Generating muxing command...')
 
 	chapterFileExists = os.path.isfile(os.path.join(baseFolder, chapters))
 
@@ -361,18 +370,14 @@ def generateMuxCmd():
 	tmp += ["-S", "-T", "-M", "--no-global-tags"] # remove subtitles -S, track specific tags -T, attachments -M tags --no-global-tags
 	if chapterFileExists:
 		tmp.append("--no-chapters") # and chapters if we got chapters
-	muxParams = muxParams + tmp	
-	muxParams.append("(")
+	muxParams = muxParams + tmp
 	muxParams.append(os.path.join(baseFolder, video))
-	muxParams.append(")")
 
 	# script
 	tmp = ["--language", "0:vie", "--track-name", "0:Ani4free", "--default-track", "0:yes", "--forced-track", "0:no", "--compression", "0:zlib", "-s", "0"]
 	tmp += ["-D", "-A", "-T", "--no-global-tags", "--no-chapters"] # don't remove subtitles or attachments
 	muxParams = muxParams + tmp
-	muxParams.append("(")
 	muxParams.append(os.path.join(baseFolder, script))
-	muxParams.append(")")
 
 	# track order
 	muxParams.append("--track-order")
@@ -395,10 +400,15 @@ def generateMuxCmd():
 		muxParams.append("--chapters")
 		muxParams.append(os.path.join(baseFolder, chapters))
 
+	tmp = ''
+	for p in muxParams:
+		tmp += '"%s" ' % p
+	writeToLog2(tmp)
+
 def executeTask(params, taskName = ''):
 	import subprocess, sys
 	if taskName != '':
-		print('Executing task "%s"...' % taskName)
+		printAndLog('Executing task "%s"...' % taskName)
 
 	execOutput = ''
 	returnCode = 0
@@ -507,7 +517,7 @@ def createPatch():
 		if not error:
 			return False
 		else:
-			print(log)
+			printAndLog(log)
 			return True
 
 	global patchv2_Created, patchMux_Created, patchUndoMux_Created
@@ -539,7 +549,7 @@ def packFiles():
 	if not plsPackStuff: return
 
 	def packFilesSub(baseFolder, filenames, archive):
-		zparams = [sevenzip, '-aoa', '-mx7', 'a']
+		zparams = [sevenzipPath, '-aoa', '-mx7', 'a']
 		zoutput = os.path.join(baseFolder, archive)
 		zparams.append(zoutput)
 		for fname in filenames:
@@ -697,16 +707,16 @@ def printFileInfo():
 	crc32, md4, md5, sha1, sha256, sha512, ed2k, error = hasher_s(finalFile)
 
 	if error == False:
-		print('Filename: %s' % name)
-		print('Size: %0.1f MB (%d bytes)' % (fileSize / (1000 * 1000), fileSize))
-		print('CRC-32: %s' % crc32)
-		print('MD5: %s' % md5)
-		print('SHA-1: %s' % sha1)
-		print('SHA-256: %s' % sha256)
-		print('SHA-512: %s' % sha512)
-		print('ED2K: %s' % ed2k)
+		printAndLog('Filename: %s' % name)
+		printAndLog('Size: %0.1f MB (%d bytes)' % (fileSize / (1000 * 1000), fileSize))
+		printAndLog('CRC-32: %s' % crc32)
+		printAndLog('MD5: %s' % md5)
+		printAndLog('SHA-1: %s' % sha1)
+		printAndLog('SHA-256: %s' % sha256)
+		printAndLog('SHA-512: %s' % sha512)
+		printAndLog('ED2K: %s' % ed2k)
 	else:
-		print(error)
+		printAndLog(error)
 
 # Calculate CPU time and average CPU usage
 def getCpuStat(cpuOld, cpuNew, timeOld, timeNew):
@@ -755,18 +765,38 @@ def isPureAscii(text):
 
 def initStuff():
 	import sys
-	global defaultTimer, terminalSupportUnicode, cpuCount
+	global defaultTimer, terminalSupportUnicode, cpuCount, logFileName
+
+	if not logInAppFolder:
+		logFileName = os.path.join(baseFolder, logFileName)
+
+	writeToLog2('\nInitializing new session...\n')
+	writeToLog2('Searching for required applications...')
 
 	foundAll = detectPaths()
 
 	if not foundAll:
-		print('Error: Not all required applications found.')
-		if mkvmergePath == None: print('mkvmerge not found')
-		if sevenzip == None: print('7z not found')
-		if xdelta3Path == None: print('xdelta3 not found')
+		printAndLog('Error: Not all required applications found.')
+		if mkvmergePath == None: 
+			printAndLog('mkvmerge not found')
+		else:
+			writeToLog2('Found mkvmerge: %s' % mkvmergePath)
+		if sevenzipPath == None: 
+			printAndLog('7z not found')
+		else:
+			writeToLog2('Found 7-zip: %s' % sevenzipPath)
+		if xdelta3Path == None: 
+			printAndLog('xdelta3 not found')
+		else:
+			writeToLog2('Found xdelta3: %s' % mkvmergePath)
 		sys.exit(1) # applications not found
+	else:
+		writeToLog2('Found mkvmerge: %s' % mkvmergePath)
+		writeToLog2('Found 7-zip: %s' % sevenzipPath)
+		writeToLog2('Found xdelta3: %s' % xdelta3Path)		
 
 	terminalSupportUnicode = checkUnicodeSupport()
+	writeToLog2('Terminal supporting non-ASCII: %r' % terminalSupportUnicode)
 	
 	# Stats setup
 	if sys.platform == 'win32':
@@ -780,13 +810,12 @@ def initStuff():
 
 	sVersion = 'Python version: %d.%d.%d\n' % (sys.version_info[0], sys.version_info[1], sys.version_info[2])
 	if debug:
-		printAndWriteLog(sVersion)
+		printAndLog(sVersion)
 	else:
 		writeToLog2(sVersion)
 
 
 initStuff()
-
 getInputList()
 generateMuxCmd()
 
@@ -796,22 +825,22 @@ if dontMux:
 # Muxing
 startTime = defaultTimer()
 
-print('Muxing episode %d version %d...' % (episode, version))
+printAndLog('Muxing episode %d version %d...' % (episode, version))
 muxInfo, muxReturnCode, muxError = executeTask(muxParams)
 if muxError:
-	print('Error occured!\n')
-	print(muxInfo)
+	printAndLog('Error occured!\n')
+	printAndLog(muxInfo)
 
 endTime = defaultTimer()
 muxTime = endTime - startTime
 
 if stopAfterMuxing:
-	print('\nStopped by user request.')
+	printAndLog('\nStopped by user request.')
 	sys.exit()
 
 # adding CRC
 if plsAddCrc:
-	print('Adding CRC-32...')
+	printAndLog('Adding CRC-32...')
 	startTime = defaultTimer()	
 	addCrc32()	
 	endTime = defaultTimer()
@@ -822,31 +851,31 @@ else:
 
 # patches
 startTime = defaultTimer()
-print('Creating patches...')
+printAndLog('Creating patches...')
 createPatch()
 endTime = defaultTimer()
 patchTime = endTime - startTime
 
 # packing
 startTime = defaultTimer()
-print('Packing script and patches...')
+printAndLog('Packing script and patches...')
 packFiles()
 endTime = defaultTimer()
 packTime = endTime - startTime
 
 # print file info
 startTime = defaultTimer()
-print('Getting file info...\n')
+printAndLog('Getting file info...\n')
 printFileInfo()
 endTime = defaultTimer()
 infoTime = endTime - startTime
 
-print(' ') # new line.
-print('Muxing took %0.3f seconds.' % muxTime)
-print('Adding CRC took %0.3f seconds.' % crcTime)
-print('Patching took %0.3f seconds.' % patchTime)
-print('Packing took %0.3f seconds.' % packTime)
-print('Getting info took %0.3f seconds.' % infoTime)
-print('\nTotal: %0.3f seconds.\n' % (muxTime + crcTime + patchTime + packTime + infoTime))
+printAndLog(' ') # new line.
+printAndLog('Muxing took %0.3f seconds.' % muxTime)
+printAndLog('Adding CRC took %0.3f seconds.' % crcTime)
+printAndLog('Patching took %0.3f seconds.' % patchTime)
+printAndLog('Packing took %0.3f seconds.' % packTime)
+printAndLog('Getting info took %0.3f seconds.' % infoTime)
+printAndLog('\nTotal: %0.3f seconds.\n' % (muxTime + crcTime + patchTime + packTime + infoTime))
 
 cleanUp()
