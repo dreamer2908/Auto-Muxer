@@ -2,10 +2,8 @@
 # encoding: utf-8
 
 # TODO: 
-# - make searchForVer at least use output_v2 [high]
-# - verify video format when searching [low]. Before the script can handle this muxing task like a human
+# - verify video format when searching [low].
 # - write a not-so-useless readme [medium]
-# - get ready to acept paramenters [medium]
 # - support multiple subtitles [medium]
 # - deal with patches for non-ascii filenames [medium]
 # - option to detect and remove previous muxed file, patches, blablah [low]
@@ -13,11 +11,14 @@
 # - support winrar [low]
 # DONE:
 # - writing logs [medium]
+# - get ready to accept paramenters [high]
+# - make searchForVer use v2 pattern [high]
+# - support non-number episode [medium]
 
 import sys, os, time
 
 programName = "Auto Muxer"
-programVer = "0.3"
+programVer = "0.4"
 programAuthor = "dreamer2908"
 
 # specify these 3 if application not found error occurs
@@ -26,11 +27,6 @@ xdelta3Path = 'xdelta3'
 sevenzipPath = '7z'
 repo, dummy = os.path.split(sys.argv[0])
 commonPaths = [r'/bin', r'/sbin', r'/usr/bin/', r'/usr/sbin/', r'/usr/local/bin/', r'/usr/local/sbin/', r'C:\Program Files (x86)\MKVToolNix', r'C:\Program Files\MKVToolNix', r'C:\Program Files\7-Zip',  r'C:\Program Files (x86)\7-Zip', repo]
-
-episode = 1
-version = 2
-baseFolder = r'F:\newlycomer\2013-fuyu\dunno\Pupa\%02d' % episode
-baseFolder = r'/media/yumi/DATA/newlycomer/2013-fuyu/dunno/Pupa/%02d/' % episode
 
 dontMux = False
 stopAfterMuxing = False
@@ -47,16 +43,23 @@ defaultTimer = None
 cpuCount = 1
 terminalSupportUnicode = False
 
-# pattern-based filename searching has been implemented, but hasn't been tested much.
-subtitle = "Pupa ? %02d.ass" % episode
-video = "* - %02d.premux.mkv" % episode
-fonts = "fonts" # the folder containing fonts inside base folder
-chapters = "Pupa - %02d.chapter?.txt" % episode
-title = "Pupa - %02d" % episode
-output = "[Hue] Pupa - %02d.mkv" % episode
-output_v2 = "[Hue] Pupa - %02dv%d.mkv" % (episode, version)
-crcSeparator = " "
-finalFile = "" # don't fill here. will be generated automatically: <output><separator>[CRC-32].ext
+# basic inputs
+episode = 1
+version = 1
+groupTag = 'Hue'
+showName = 'Pupa'
+baseFolder = r'F:\newlycomer\2013-fuyu\dunno\Pupa\$2ep$'
+baseFolder = r'/media/yumi/DATA/newlycomer/2013-fuyu/dunno/Pupa/$2ep$/'
+subtitle = r"Pupa ? $2ep$.ass"
+video = r"*premux*.mkv"
+fonts = r"fonts" # the folder containing fonts inside base folder
+chapters = r"Pupa - $2ep$.chapter?.txt"
+title = r"Pupa - $2ep$"
+output = r'[$tag$] $show$ - $2ep$ [$crc$].mkv'
+output_v2 = r'[$tag$] $show$ - $2ep$v$ver$ [$crc$].mkv'
+output_tmp = 'muxed.mkv'
+previousVersion = r'[$tag$] $show$ - $2ep$v$lver$ [$crc$].mkv'
+previousVersionFound = False
 
 # track languages and names
 video_Name = "H.264 720p"
@@ -66,20 +69,17 @@ audio_Lang = "jpn"
 subtitle_Name = "Powered by Engrish(tm)"
 subtitle_Lang = "eng"
 
-previousVersion = '' # will be searched for automatically
-previousVersionFound = False
-
-patchv2_FolderName = 'patch_ep_%02d_v%d_to_v%d' % (episode, version - 1, version)
-patchMux_FolderName = 'patch_ep_%02d_mux' % episode
-patchUndoMux_FolderName = 'patch_ep_%02d_undo_mux' % episode
+patchv2_FolderName = 'patch_ep_$2ep$_v$lver$_to_v$ver$'
+patchMux_FolderName = 'patch_ep_$2ep$_mux'
+patchUndoMux_FolderName = 'patch_ep_$2ep$_undo_mux'
 patchv2_Created = False
 patchMux_Created = False
 patchUndoMux_Created = False
 
-subtitleArchive = '[Hue] Pupa - %02d [sub].7z' % episode
+subtitleArchive = '[Hue] Pupa - $2ep$ [sub].7z'
 patchRawArchive = patchMux_FolderName + '.7z'
 patchv2Archive = patchv2_FolderName + '.7z'
-patchAllArchive = 'patch_ep_%02d_all.7z' % episode
+patchAllArchive = 'patch_ep_$2ep$_all.7z'
 
 plsAddCrc = True
 plsCreatePatch_Mux = True
@@ -90,6 +90,70 @@ plsPackStuff = True
 fontList = []
 fontList_Name = []
 muxParams = []
+
+# replace $2ep$, $1ver$ with real value
+def fillInValue(text):
+	import re
+
+	specialChars = r'.^$*+?{}, \[]|():=#!<'
+	reg_Ep = re.compile(r'\$(\d)ep\$')
+	reg_Ver = re.compile(r'\$ver\$')
+	reg_Lver = re.compile(r'\$lver\$')
+	reg_Tag = re.compile(r'\$tag\$')
+	reg_Show = re.compile(r'\$show\$')
+	reg_Crc = re.compile(r'\$crc\$')
+	regArray = [reg_Ep, reg_Show, reg_Ver, reg_Lver, reg_Tag, reg_Crc]
+
+	def regRepl(matchOjb):
+		# episode number
+		if (matchOjb.re == reg_Ep):
+			formatStr = '%0' + matchOjb.groups(1)[0] +'d'
+			# just return variable episode if it's not a number
+			try:
+				return formatStr % episode
+			except:
+				return episode
+		elif (matchOjb.re == reg_Lver):
+			formatStr = '%d'
+			return formatStr % (version - 1)
+		elif (matchOjb.re == reg_Ver):
+			formatStr = '%d'
+			return formatStr % version
+		elif (matchOjb.re == reg_Tag):
+			return groupTag
+		elif (matchOjb.re == reg_Show):
+			return showName
+		elif (matchOjb.re == reg_Crc): # addcrc will fill it in later
+		# 	try:
+		# 		return '%08X' % crc32
+		# 	except:
+		# 		return '%s' % crc32
+			return '$crc$'
+
+	for regObj in regArray:
+		text = re.sub(regObj, regRepl, text)
+	if debug:
+		print(text)
+	return text
+
+def fillInInputs():
+	global baseFolder, subtitle, video, fonts, chapters, title, output, output_v2, previousVersion, patchv2_FolderName, patchMux_FolderName, patchUndoMux_FolderName, subtitleArchive, patchRawArchive, patchv2Archive, patchAllArchive
+	baseFolder = fillInValue(baseFolder)  
+	subtitle = fillInValue(subtitle)
+	video = fillInValue(video)
+	fonts = fillInValue(fonts)
+	chapters = fillInValue(chapters)
+	title = fillInValue(title)
+	patchv2_FolderName = fillInValue(patchv2_FolderName)
+	patchMux_FolderName = fillInValue(patchMux_FolderName)
+	patchUndoMux_FolderName = fillInValue(patchUndoMux_FolderName)
+	subtitleArchive = fillInValue(subtitleArchive)
+	patchRawArchive = fillInValue(patchRawArchive)
+	patchv2Archive = fillInValue(patchv2Archive)
+	patchAllArchive = fillInValue(patchAllArchive)
+	output = fillInValue(output)
+	output_v2 = fillInValue(output_v2)
+	previousVersion = fillInValue(previousVersion)
 
 # detect mkvmerge, 7z, xdelta3 location
 def detectPaths():
@@ -169,10 +233,6 @@ def writeToLog(text):
 			error = str(e)
 		print("Error! Can't write to log file: %s" % error)
 
-def cleanUp():
-	if logFile != None:
-		logFile.close()
-
 def getInputList():
 	import sys, os
 	global fontList, video, subtitle, chapters, previousVersion, previousVersionFound, output
@@ -238,7 +298,7 @@ def getInputList():
 	# Currently:
 	# inputType: 1 = video, 2 = subtitles, 3 = chapters
 	# Chapters: .txt and its content starts with 'CHAPTER'; or .xml and '<?xml'
-	# Subtitles: .ass and '﻿[Script Info]'
+	# Subtitles: .ass and '[Script Info]'
 	# Video: ext the same as pattern, .mp4, .mkv. Format verification hasn't been implenented yet.
 	def searchForInputs(baseFolder, pattern, inputType):
 		import sys, os, fnmatch, codecs
@@ -282,13 +342,12 @@ def getInputList():
 		return None, False
 
 	# TODO: make it use pattern specified in output_v2
-	def searchForVer(baseFolder, baseName, wantedVer):
+	def searchForVer(baseFolder, wantedVer):
 		for (dirpath, dirnames, filenames) in os.walk(baseFolder):
-			namae, ext = os.path.splitext(baseName)
 			if wantedVer > 1:
-				pattern = namae + 'v%d' % wantedVer + '*' + ext
+				pattern = previousVersion.replace('$crc$', '*')
 			else:
-				pattern = namae + '*' + ext
+				pattern = output.replace('$crc$', '*')
 			filenames2 = patternMatching(filenames, pattern)
 			if len(filenames2) > 0:
 				return filenames2[0]
@@ -296,6 +355,7 @@ def getInputList():
 		return ''
 
 	printAndLog('Gathering inputs...')
+	fillInInputs()
 	error = False
 	warning = False
 	searched = False
@@ -362,8 +422,8 @@ def getInputList():
 		error = True
 
 	# previous version
-	if version > 1:
-		v1Filename = searchForVer(baseFolder, output, version - 1)
+	if plsCreatePatch_v2 and version > 1:
+		v1Filename = searchForVer(baseFolder, version - 1)
 		output = output_v2
 		if len(v1Filename) > 0:
 			previousVersion = v1Filename
@@ -392,7 +452,7 @@ def generateMuxCmd():
 
 	# output
 	muxParams.append('-o')
-	muxParams.append(os.path.join(baseFolder, output))
+	muxParams.append(os.path.join(baseFolder, output_tmp))
 
 	# video
 	tmp = ["--language", "0:%s" % video_Lang, "--track-name", "0:%s" % video_Name, "--default-track", "0:yes", "--forced-track", "0:no", "--language", "1:%s" % audio_Lang, "--track-name", "1:%s" % audio_Name, "--default-track", "1:yes", "--forced-track", "1:no", "-a", "1", "-d", "0" ] # copy audio track 1 & video track 0 from premux
@@ -463,7 +523,7 @@ def addCrc32():
 	# Same for md4, md5, sha-1, etc.
 	# Python 2.x might return negative crc32. Just add 2^32 to it in that case. 
 	# Comfirmed correct by hashing hundreds of files
-	def crc32v2(fileName):
+	def getCrc32(fileName):
 		import zlib, sys
 
 		fileSize = os.path.getsize(fileName)
@@ -488,10 +548,15 @@ def addCrc32():
 				error = str(e)
 			return 0, error
 
-	oldPath = os.path.join(baseFolder, output)
-	sHash, error = crc32v2(oldPath)
-	namae, ext = os.path.splitext(oldPath)
-	newName = namae + crcSeparator + "[%s]" % sHash + ext
+	oldPath = os.path.join(baseFolder, output_tmp)
+	hashS, error = getCrc32(oldPath)
+	
+	if version == 1:
+		newName = os.path.join(baseFolder, output)
+	else:
+		newName = os.path.join(baseFolder, output_v2)
+	newName = newName.replace('$crc$', hashS)
+
 	try:
 		shutil.move(oldPath, newName)
 		finalFile = newName
@@ -843,6 +908,9 @@ def initStuff():
 	else:
 		writeToLog2(sVersion)
 
+def cleanUp():
+	if logFile != None:
+		logFile.close()
 
 initStuff()
 getInputList()
@@ -854,7 +922,11 @@ if dontMux:
 # Muxing
 startTime = defaultTimer()
 
-printAndLog('Muxing episode %d version %d...' % (episode, version))
+try:
+	notice = 'Muxing episode %d version %d...' % (episode, version)
+except:
+	notice = 'Muxing %s version %d' % (episode, version)
+printAndLog(notice)
 muxInfo, muxReturnCode, muxError = executeTask(muxParams)
 if muxError:
 	printAndLog('Error occured!\n')
