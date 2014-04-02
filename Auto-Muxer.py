@@ -6,7 +6,6 @@
 # - write a not-so-useless readme [medium]
 # - support multiple subtitles [medium]
 # - deal with patches for non-ascii filenames [medium]
-# - option to detect and remove previous muxed file, patches, blablah [low]
 # - handle character encoding mess (mostly for windows support--why do I even support windows?) [low]
 # - support winrar [low]
 # DONE:
@@ -14,6 +13,7 @@
 # - get ready to accept paramenters [high]
 # - make searchForVer use v2 pattern [high]
 # - support non-number episode [medium]
+# - option to detect and remove previously muxed same-version files [low]
 
 import sys, os, time
 
@@ -45,11 +45,11 @@ terminalSupportUnicode = False
 
 # basic inputs
 episode = 1
-version = 1
+version = 7
 groupTag = 'Hue'
 showName = 'Pupa'
 baseFolder = r'F:\newlycomer\2013-fuyu\dunno\Pupa\$2ep$'
-baseFolder = r'/media/yumi/DATA/newlycomer/2013-fuyu/dunno/Pupa/$2ep$/'
+#baseFolder = r'/media/yumi/DATA/newlycomer/2013-fuyu/dunno/Pupa/$2ep$/'
 subtitle = r"Pupa ? $2ep$.ass"
 video = r"*premux*.mkv"
 fonts = r"fonts" # the folder containing fonts inside base folder
@@ -57,35 +57,38 @@ chapters = r"Pupa - $2ep$.chapter?.txt"
 title = r"Pupa - $2ep$"
 output = r'[$tag$] $show$ - $2ep$ [$crc$].mkv'
 output_v2 = r'[$tag$] $show$ - $2ep$v$ver$ [$crc$].mkv'
-output_tmp = 'muxed.mkv'
+output_tmp = r'muxed.mkv'
 previousVersion = r'[$tag$] $show$ - $2ep$v$lver$ [$crc$].mkv'
 previousVersionFound = False
+sameVersion = ''
+sameVersionFound = False
 
 # track languages and names
-video_Name = "H.264 720p"
-video_Lang = "jpn"
-audio_Name = "AAC LC 2.0"
-audio_Lang = "jpn"
-subtitle_Name = "Powered by Engrish(tm)"
-subtitle_Lang = "eng"
+video_Name = r"H.264 720p"
+video_Lang = r"jpn"
+audio_Name = r"AAC LC 2.0"
+audio_Lang = r"jpn"
+subtitle_Name = r"Powered by Engrish(tm)"
+subtitle_Lang = r"eng"
 
-patchv2_FolderName = 'patch_ep_$2ep$_v$lver$_to_v$ver$'
-patchMux_FolderName = 'patch_ep_$2ep$_mux'
-patchUndoMux_FolderName = 'patch_ep_$2ep$_undo_mux'
+patchv2_FolderName = r'patch_ep_$2ep$_v$lver$_to_v$ver$'
+patchMux_FolderName = r'patch_ep_$2ep$_mux'
+patchUndoMux_FolderName = r'patch_ep_$2ep$_undo_mux'
 patchv2_Created = False
 patchMux_Created = False
 patchUndoMux_Created = False
 
-subtitleArchive = '[Hue] Pupa - $2ep$ [sub].7z'
+subtitleArchive = r'[$tag$] $show$ - $2ep$ [sub].7z'
 patchRawArchive = patchMux_FolderName + '.7z'
 patchv2Archive = patchv2_FolderName + '.7z'
-patchAllArchive = 'patch_ep_$2ep$_all.7z'
+patchAllArchive = r'patch_ep_$2ep$_all.7z'
 
 plsAddCrc = True
 plsCreatePatch_Mux = True
-plsCreatePatch_UndoMux = False
+plsCreatePatch_UndoMux = True
 plsCreatePatch_v2 = True
 plsPackStuff = True
+plsRemoveSameVersion = True
 
 fontList = []
 fontList_Name = []
@@ -235,7 +238,7 @@ def writeToLog(text):
 
 def getInputList():
 	import sys, os
-	global fontList, video, subtitle, chapters, previousVersion, previousVersionFound, output
+	global fontList, video, subtitle, chapters, previousVersion, previousVersionFound, output, sameVersion, sameVersionFound
 
 	# Similar to fnmatch.filter, but [range] is not supported as it's useless for this purpose
 	# Moreover, fnmatch.filter breaks when the pattern contains [Group tag], which is very common
@@ -341,18 +344,28 @@ def getInputList():
 			break
 		return None, False
 
-	# TODO: make it use pattern specified in output_v2
-	def searchForVer(baseFolder, wantedVer):
+	# return an array of filename strings
+	def searchForVers(baseFolder, wantedVer):
 		for (dirpath, dirnames, filenames) in os.walk(baseFolder):
 			if wantedVer > 1:
-				pattern = previousVersion.replace('$crc$', '*')
+				if wantedVer < version:
+					pattern = previousVersion.replace('$crc$', '*')
+				else:
+					pattern = output.replace('$crc$', '*')
 			else:
 				pattern = output.replace('$crc$', '*')
 			filenames2 = patternMatching(filenames, pattern)
 			if len(filenames2) > 0:
-				return filenames2[0]
+				return filenames2
 			break
 		return ''
+	# return the first matching one
+	def searchForVer(baseFolder, wantedVer):
+		filenames = searchForVers(baseFolder, wantedVer)
+		if len(filenames) > 0:
+			return filenames[0]
+		else:
+			return ''
 
 	printAndLog('Gathering inputs...')
 	fillInInputs()
@@ -421,16 +434,26 @@ def getInputList():
 		printAndLog('No font files found.')
 		error = True
 
+	if version > 1:
+		output = output_v2
+
 	# previous version
 	if plsCreatePatch_v2 and version > 1:
 		v1Filename = searchForVer(baseFolder, version - 1)
-		output = output_v2
 		if len(v1Filename) > 0:
 			previousVersion = v1Filename
 			previousVersionFound = True
+			printAndLog('Found previous version: %s.' % previousVersion)
 
-	if previousVersionFound:
-		printAndLog('Found previous version: %s.' % previousVersion)
+	# same version
+	if plsRemoveSameVersion:
+		sameVersion = searchForVers(baseFolder, version)
+		if sameVersion != '':
+			sameVersionFound = True
+			notice = 'Found same version: '
+			for s in sameVersion:
+				notice += '"%s" ' % s
+			printAndLog(notice)
 
 	if searched:
 		printAndLog('Warning: Certain specified file(s) not found, but alternative(s) found. Please check if they are the correct ones.')
@@ -514,6 +537,19 @@ def executeTask(params, taskName = ''):
 
 	return execOutput, returnCode, error
 
+def premuxCleanup():
+	import shutil, os
+
+	# sameVersion is an array of filename string
+	if plsRemoveSameVersion and sameVersionFound:
+		for s in sameVersion:
+			victim = os.path.join(baseFolder, s)
+			#print(victim)
+			try:
+				os.remove(victim)
+			except:
+				doNothing = 1
+
 def addCrc32():
 	import shutil, os
 	global finalFile
@@ -549,13 +585,15 @@ def addCrc32():
 			return 0, error
 
 	oldPath = os.path.join(baseFolder, output_tmp)
-	hashS, error = getCrc32(oldPath)
 	
 	if version == 1:
 		newName = os.path.join(baseFolder, output)
 	else:
 		newName = os.path.join(baseFolder, output_v2)
-	newName = newName.replace('$crc$', hashS)
+	
+	if plsAddCrc:
+		hashS, error = getCrc32(oldPath)
+		newName = newName.replace('$crc$', hashS)
 
 	try:
 		shutil.move(oldPath, newName)
@@ -627,9 +665,17 @@ def createPatch():
 	def createPatchSub(outputFolder, baseFile, patchedFile):
 		try:
 			shutil.rmtree(outputFolder, True)
-			os.makedirs(outputFolder)
 		except:
 			doNothing = 1
+		# give it some tries
+		for n in range(5):
+			try:
+				os.makedirs(outputFolder)
+				break
+			except:
+				doNothing = 1
+		if not os.path.isdir(outputFolder):
+			print("Couldn't created folder '%s'" % outputFolder)
 
 		dummy, baseFileName = os.path.split(baseFile)
 		dummy, patchedFileName = os.path.split(patchedFile)
@@ -864,6 +910,7 @@ def initStuff():
 	if not logInAppFolder:
 		logFileName = os.path.join(baseFolder, logFileName)
 
+	writeToLog2('------------------------------------------------------------------------------------------------------')
 	writeToLog2('\nInitializing new session...\n')
 	writeToLog2('Searching for required applications...')
 
@@ -919,13 +966,18 @@ generateMuxCmd()
 if dontMux:
 	sys.exit()
 
+# run premuxing cleanup (same versions, etc.)
+if plsRemoveSameVersion and sameVersionFound:
+	printAndLog('Removing same-version files found...')
+	premuxCleanup()
+
 # Muxing
 startTime = defaultTimer()
 
 try:
 	notice = 'Muxing episode %d version %d...' % (episode, version)
 except:
-	notice = 'Muxing %s version %d' % (episode, version)
+	notice = 'Muxing episode %s version %d' % (episode, version)
 printAndLog(notice)
 muxInfo, muxReturnCode, muxError = executeTask(muxParams)
 if muxError:
@@ -940,15 +992,11 @@ if stopAfterMuxing:
 	sys.exit()
 
 # adding CRC-32
-if plsAddCrc:
-	printAndLog('Adding CRC-32...')
-	startTime = defaultTimer()	
-	addCrc32()	
-	endTime = defaultTimer()
-	crcTime = endTime - startTime
-else:
-	finalFile = output
-	crcTime = 0
+printAndLog('Adding CRC-32...')
+startTime = defaultTimer()	
+addCrc32()	
+endTime = defaultTimer()
+crcTime = endTime - startTime
 
 # patches
 startTime = defaultTimer()
