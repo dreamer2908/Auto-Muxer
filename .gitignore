@@ -52,5 +52,6 @@ coverage.xml
 # Sphinx documentation
 docs/_build/
 
+# test stuffs
 test/
 muxing_log.txt
