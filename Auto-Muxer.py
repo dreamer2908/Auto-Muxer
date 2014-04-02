@@ -5,15 +5,22 @@
 # - verify video format when searching [low].
 # - write a not-so-useless readme [medium]
 # - support multiple subtitles [medium]
-# - deal with patches for non-ascii filenames [medium]
-# - handle character encoding mess (mostly for windows support--why do I even support windows?) [low]
 # - support winrar [low]
+#
+# STALLED:
+# - deal with patches for non-ascii filenames [medium]: It does create patches, but they won't work. 
+#   xdelta3 does save filenames in vcdiff, but because of paramenters encoding problem, these filenames are all ???
+#   That's the same reason xdelta3 can't open the files with non-ascii names I give, and I had to wrote some codes
+#   to rename them to pure ascii name before and rename back after. It's fruitless, though.
+#   Supporting non-ascii on Python 2 is even more :effort:, so it was halted. Pls use only pure ascii filenames.
+#
 # DONE:
 # - writing logs [medium]
 # - get ready to accept paramenters [high]
 # - make searchForVer use v2 pattern [high]
 # - support non-number episode [medium]
 # - option to detect and remove previously muxed same-version files [low]
+# - handle character encoding (output) mess (mostly for windows support--why do I even support windows?) [low]
 
 import sys, os, time
 
@@ -202,10 +209,54 @@ def detectPaths():
 		return False # not found
 	return True # all OK
 
+def isPureAscii(text):
+	for c in text:
+		code = ord(c)
+		if code > 127:
+			return False
+	return True
+
+def encodeList(mylist):
+	# import sys 
+	# tmp = []
+	# for item in mylist:
+	# 	tmp.append(item.encode(sys.stdin.encoding))
+	return mylist
+
+def toAsciiBytes(text):
+	asciiText = removeNonAscii(text)
+	try:
+		return asciiText.encode('ascii')
+	except:
+		return asciiText
+
+# Kills non-ASCII characters
+def removeNonAscii(original):
+	result = ''
+	for c in original:
+		code = ord(c)
+		if code < 128:
+			result += c
+		else:
+			result += '?'
+	return result
+
+def printHacked(text):
+	try:
+		print(text)
+	except:		
+		print(removeNonAscii(text))
+
 def printAndLog(text):
-	print(text)
+	printHacked(text)
 	if plsWriteLogs:
 		writeToLog2(text)
+
+def writeToLog3(mylist):
+	tmp = ''
+	for l in mylist:
+		tmp += '"%s" ' % l
+	writeToLog2(tmp)
 
 def writeToLog2(text):
 	writeToLog(text + '\n')
@@ -223,7 +274,7 @@ def writeToLog(text):
 
 	try:
 		if logFile == None:
-			logFile = codecs.open(logFileName, 'a', 'utf-8')
+			logFile = codecs.open(logFileName, 'a', 'utf-16-le')
 		logFile.write(text)
 		logWriteCount += 1
 		if logWriteCount > 9:
@@ -512,10 +563,7 @@ def generateMuxCmd():
 		muxParams.append("--chapters")
 		muxParams.append(os.path.join(baseFolder, chapters))
 
-	tmp = ''
-	for p in muxParams:
-		tmp += '"%s" ' % p
-	writeToLog2(tmp)
+	writeToLog3(muxParams)
 
 # executes given task and return console output, return code and error message if any
 def executeTask(params, taskName = ''):
@@ -526,6 +574,7 @@ def executeTask(params, taskName = ''):
 	execOutput = ''
 	returnCode = 0
 	error = False
+	writeToLog3(params)
 	try:
 		execOutput = subprocess.check_output(params)
 	except subprocess.CalledProcessError as e:
@@ -611,6 +660,8 @@ def addCrc32():
 # Updated: tested on Python 3.3.3 and Windows 7 x64. Also "magic".
 # If you're also working on Yet Another xdelta-based Patch Creator, pls take care of this problem as well.
 # As the time I was writing this, YAXBPC used Unix EOL for Mac OS script, and Linux script was out-of-date.
+# Update: using Unix EOL works for all platforms. Tested on Windows and Linux. 
+# Mac OS seems to have switched to it recently.
 #
 # One more thing to bother you: patches for files with non-ASCII name. 
 # For pure ASCII filenames, patches work fine, and cross-platform. # For non-ASCII filenames, well, they don't. 
@@ -626,6 +677,14 @@ def addCrc32():
 # This will tell the command prompt to switch to UTF-8 encoding, and so, it reads UTF-8 file fine.
 # You can just use the normal script for this. The downside is that code page 65001 is buggy; I have no idea
 # if it works on multiply version of Windows.
+# Update: This is what happened when I tested it
+# F:\newlycomer\2013-fuyu\dunno\Pupa\01\patch_ep_01_mux_uni>apply_patch_windows.bat
+# Active code page: 65001
+# Attempting to patch Pupa - 01.premux.mkv...
+# xdelta3: file open failed: write: [(????)] Pupa - 01v7 [3360883D].mkv: The filename, directory name, or volume label syntax is incorrect.
+# Done. Press enter to exit.
+# Press any key to continue . . .
+# This "solution" for Windows is screwed.
 # - For Linux/Mac OS, make a Python script to apply. It's Python, so everything can be done nicely. 
 # Most distro should have Python installed, so it's fine. # On the other hand, most Windows installations 
 # don't have Python installed. So bad. I haven't tested if UTF-8 shell scripts works yet.
@@ -640,10 +699,12 @@ def createPatch():
 	def generateApplyScripts(outputFolder, baseFile, patchedFile):
 
 		applyScripts = ['apply_patch_linux.sh', 'apply_patch_mac.command', 'apply_patch_windows.bat']
+		if not (isPureAscii(baseFile) and isPureAscii(patchedFile)):
+			applyScripts = ['apply_patch_linux_alternative.sh', 'apply_patch_mac_alternative.command', 'apply_patch_windows_alternative.bat']
 
 		for s in applyScripts:
 			base = os.path.join(repo, s)
-			targ = os.path.join(outputFolder, s)
+			targ = os.path.join(outputFolder, s.replace('_alternative', ''))
 			if os.path.isfile(base):
 				f = codecs.open(base, "r", "utf-8")
 				f2 = codecs.open(targ, 'w', 'utf-8')
@@ -663,29 +724,84 @@ def createPatch():
 
 	# See the wall of text above
 	def createPatchSub(outputFolder, baseFile, patchedFile):
-		try:
-			shutil.rmtree(outputFolder, True)
-		except:
-			doNothing = 1
+		def swap(a, b):
+			return b, a
+		# try:
+		# 	shutil.rmtree(outputFolder, True)
+		# except:
+		# 	doNothing = 1
 		# give it some tries
+		error = ''
 		for n in range(5):
 			try:
 				os.makedirs(outputFolder)
 				break
-			except:
-				doNothing = 1
+			except Exception as e:				
+				if sys.version_info[0] < 3:
+					error = unicode(e)
+				else:
+					error = str(e)
+				#print(error)
 		if not os.path.isdir(outputFolder):
-			print("Couldn't created folder '%s'" % outputFolder)
+			print("Couldn't created folder '%s': %s" % (outputFolder, error))
 
 		dummy, baseFileName = os.path.split(baseFile)
 		dummy, patchedFileName = os.path.split(patchedFile)
 
 		xparams = [xdelta3Path, '-A=%s//%s/' % (patchedFileName, baseFileName), '-D', '-R', '-f', '-e', '-s']
+
+		# to deal with problem when xdelta3 can't open the file we give it because incorrect paramenter encoding
+		# we temporarily rename it to something and rename it back later
+		baseFileMoved = False
+		patchedFileMoved = False
+		baseFileTmp = os.path.join(baseFolder, 'baseFileTmp')
+		patchedFileTmp = os.path.join(baseFolder, 'patchedFileTmp')
+		if not (isPureAscii(baseFile)):
+			try:
+				shutil.move(baseFile, baseFileTmp)
+				baseFileMoved = True
+				writeToLog2('Moved baseFile to %s' % baseFileTmp)
+				baseFileTmp, baseFile = swap(baseFileTmp, baseFile)
+			except:
+				doNothing = 1
+				writeToLog2("Couldn't moved baseFile!")
+		if not (isPureAscii(patchedFile)):
+			try:
+				shutil.move(patchedFile, patchedFileTmp)
+				patchedFileMoved = True
+				writeToLog2('Moved patchedFile to %s' % patchedFileTmp)
+				patchedFileTmp, patchedFile = swap(patchedFileTmp, patchedFile)
+			except:
+				doNothing = 1
+				writeToLog2("Couldn't moved patchedFile!")
+
 		xparams.append(baseFile)
 		xparams.append(patchedFile)
 		xparams.append(os.path.join(outputFolder, 'changes.vcdiff'))
 
+		xparams = encodeList(xparams)
 		log, returnCode, error = executeTask(xparams)
+
+		# move them back
+		if baseFileMoved:
+			try:
+				baseFileTmp, baseFile = swap(baseFileTmp, baseFile)
+				shutil.move(baseFileTmp, baseFile)
+				writeToLog2('Moved baseFile back to %s' % baseFile)
+			except:
+				doNothing = 1
+				writeToLog2("Couldn't moved baseFile back!")
+
+		if patchedFileMoved:
+			try:
+				patchedFileTmp, patchedFile = swap(patchedFileTmp, patchedFile)
+				shutil.move(patchedFileTmp, patchedFile)
+				writeToLog2('Moved patchedFile back to %s' % patchedFile)
+			except:
+				doNothing = 1
+				writeToLog2("Couldn't moved patchedFile back!")
+
+
 		generateApplyScripts(outputFolder, baseFileName, patchedFileName)
 		# return True if error occurs, and False if it works
 		if not error:
@@ -896,13 +1012,6 @@ def checkUnicodeSupport():
 		return False
 	return True
 
-def isPureAscii(text):
-	for c in text:
-		code = ord(c)
-		if code > 127:
-			return False
-	return True
-
 def initStuff():
 	import sys
 	global defaultTimer, terminalSupportUnicode, cpuCount, logFileName
@@ -968,7 +1077,7 @@ if dontMux:
 
 # run premuxing cleanup (same versions, etc.)
 if plsRemoveSameVersion and sameVersionFound:
-	printAndLog('Removing same-version files found...')
+	printAndLog('Removing same-version files...')
 	premuxCleanup()
 
 # Muxing
