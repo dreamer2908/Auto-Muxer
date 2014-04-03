@@ -1,0 +1,13 @@
+Hi there,
+
+In short:
+- Move your original file (&basefile&) into this folder. In future, I might make the script search for it, but just move it for now.
+- Run the applying script written for your operating system: for Windows, apply_patch_windows.bat; for Linux/Unix, apply_patch_linux.sh; for Mac OSX, apply_patch_mac.command.
+- Check if a new file was created (&patchedfile&). If it was, you're successful.
+- If it wasn't, try the alternative script.
+- If even the alternative script fails, bug the person who gave you this patch. Do not bug me (the author of this script); it works in all my tests. If something goes wrong, it's either that person's fault or your own fault.
+
+You might want to check for some system requirements:
+- A *working* computer.
+- A *working* and *modern* PC operating system (Windows, Linux, Unix, Mac OSX).
+- xdelta3 package installed if you're running Mac OSX. I don't have a Mac so I don't have any Mac xdelta3 binary to include with this patch. Feel free to donate me one if you want it.

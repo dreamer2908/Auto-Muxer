@@ -1,9 +1,15 @@
+
 @echo off
 setlocal
+chcp 65001
 set basefile=&basefile&
 set patchedfile=&patchedfile&
 set app=xdelta3.exe
 set changes=changes.vcdiff
+set basefiletmp=basefile.tmp
+set patchedfiletmp=patchedfile.tmp
+set movebasefile=0
+set movepatchedfile=0
 
 if exist "%patchedfile%" (
     echo Target file already exists. Press enter to continue and overwrite it, or press Ctrl + C to cancel.
@@ -19,7 +25,15 @@ if not exist "%app%" goto filenotfound
 
 :startnow
 echo Attempting to patch %basefile%...
-%app% -d -f -s "%basefile%" "%changes%" "%patchedfile%"
+if %movebasefile% equ 1 (
+	move "%basefile%" "%basefiletmp%" > nul
+) else (
+	set basefiletmp=%basefile%
+)
+if %movepatchedfile% equ 0 set patchedfiletmp=%patchedfile%
+%app% -d -f -s "%basefiletmp%" "%changes%" "%patchedfiletmp%"
+if %movebasefile% equ 1 move "%basefiletmp%" "%basefile%" > nul
+if %movepatchedfile% equ 1 move "%patchedfiletmp%" "%patchedfile%" > nul
 echo Done. Press enter to exit.
 PAUSE
 exit /b

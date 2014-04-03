@@ -1,6 +1,9 @@
 #!/usr/bin/python
 # encoding: utf-8
 
+# NOTE: ALL STRING RELATING TO INPUTS/OUTPUTS (LIKE BASE FOLDER, VIDEO, GROUP TAG, ASS, ETC.) MUST BE UNICODE STRING.
+# Use u'your string' if you're using Python 2. All strings in Python 3 are Unicode by default.
+
 # TODO:
 # - verify video format when searching [low].
 # - write a not-so-useless readme [medium]
@@ -8,13 +11,7 @@
 # - accept paramenters [medium][after multiple subtitles supports]
 # - support winrar [low]
 #
-# INCOMPLETE:
-# - deal with patches for non-ascii filenames [medium]: 
-#   + On Windows: It does create patches successfully, but they won't work. 
-#   xdelta3 saves filenames in vcdiff, but because of paramenters encoding problem, these names are all ???
-#   That's the same reason xdelta3 can't open the files with non-ascii names I give, and I had to wrote some codes
-#   to rename them to pure ascii name before and rename back after. Pls use only pure ascii filenames/folders.
-#   + On Linux: This works nicely on Python 2/3 & LinuxMint 16. 
+# INCOMPLETE/ON PROGRESS:
 #
 # DONE:
 # - writing logs [medium]
@@ -22,7 +19,11 @@
 # - make searchForVer use v2 pattern [high]
 # - support non-number episode [medium]
 # - option to detect and remove previously muxed same-version files [low]
-# - handle character encoding (output) mess (mostly for windows support--why do I even support windows?) [low]
+# - deal with patches for non-ascii filenames [high]: 
+#   + handle character encoding (output) mess (mostly for windows support--why do I even support windows?) [low]
+#   + alternative applying scripts for Windows and non-ascii filenames: attempt to patch with temporary names and rename later [high]
+#   + On Windows: works on Windows 7 x64, Python 2.7.6, 3.3.3.
+#   + On Linux: works nicely on Python 2.7.5, 3.3.2 & LinuxMint 16. 
 
 import sys, os, time
 
@@ -47,22 +48,23 @@ win32 = False
 
 plsWriteLogs = True
 logFile = None
-logFileName = 'muxing_log.txt'
+logFileName = u'muxing_log.txt'
 logWriteCount = 0
 logInAppFolder = True
 
 defaultTimer = None
 cpuCount = 1
 terminalSupportUnicode = False
+nonAsciiParamsWorking = True
 
 # basic inputs
 episode = 1
-version = 7
-#groupTag = u'(✿◠‿◠)'
-groupTag = u'Hue'
+version = 10
+groupTag = u'(✿◠‿◠)'
+#groupTag = u'Hue'
 showName = u'Pupa'
-baseFolder = u'F:\newlycomer\2013-fuyu\dunno\Pupa\$2ep$'
-baseFolder = u'/media/yumi/DATA/newlycomer/2013-fuyu/dunno/Pupa/$2ep$/'
+baseFolder = u'F:\\newlycomer\\2013-fuyu\\dunno\\Pupa\\$2ep$'
+#baseFolder = u'/media/yumi/DATA/newlycomer/2013-fuyu/dunno/Pupa/$2ep$/'
 subtitle = u"Pupa ? $2ep$.ass"
 video = u"*premux*.mkv"
 fonts = u"fonts" # the folder containing fonts inside base folder
@@ -73,7 +75,7 @@ output_v2 = u'[$tag$] $show$ - $2ep$v$ver$ [$crc$].mkv'
 output_tmp = u'muxed.mkv'
 previousVersion = u'[$tag$] $show$ - $2ep$v$lver$ [$crc$].mkv'
 previousVersionFound = False
-sameVersion = ''
+sameVersion = u''
 sameVersionFound = False
 
 # track languages and names
@@ -100,7 +102,7 @@ plsAddCrc = True
 plsCreatePatch_Mux = True
 plsCreatePatch_UndoMux = True
 plsCreatePatch_v2 = True
-plsPackStuff = True
+plsPackStuff = False
 plsRemoveSameVersion = True
 
 fontList = []
@@ -221,13 +223,6 @@ def isPureAscii(text):
 		if code > 127:
 			return False
 	return True
-
-def encodeList(mylist):
-	# import sys 
-	# tmp = []
-	# for item in mylist:
-	# 	tmp.append(item.encode(sys.stdin.encoding))
-	return mylist
 
 def toAsciiBytes(text):
 	asciiText = removeNonAscii(text)
@@ -728,52 +723,62 @@ def addCrc32():
 # Patches created on Unix won't work on Windows, and blablah. However, I came with a few "solution": 
 # - For Windows script, encode it in UTF-8 without BOM, and put "chcp 65001" at the beginning. 
 # This will tell the command prompt to switch to UTF-8 encoding, and so, it reads UTF-8 file fine.
-# You can just use the normal script for this. The downside is that code page 65001 is buggy; I have no idea
-# if it works on multiply version of Windows.
-# Update: This is what happened when I tested it
-# F:\newlycomer\2013-fuyu\dunno\Pupa\01\patch_ep_01_mux_uni>apply_patch_windows.bat
-# Active code page: 65001
-# Attempting to patch Pupa - 01.premux.mkv...
-# xdelta3: file open failed: write: [(????)] Pupa - 01v7 [3360883D].mkv: The filename, directory name, or volume label syntax is incorrect.
-# Done. Press enter to exit.
-# Press any key to continue . . .
-# This "solution" for Windows is screwed.
-# - For Linux/Mac OS, make a Python script to apply. It's Python, so everything can be done nicely. 
-# Most distro should have Python installed, so it's fine. # On the other hand, most Windows installations 
-# don't have Python installed. So bad. I haven't tested if UTF-8 shell scripts works yet.
+# The problem is that code page 65001 is buggy; I have no idea if it works on many versions of Windows. 
+# You must rework the script for this. OK. I've done it.
+# - For Linux/Mac OS, encode the normal scripts in UTF-8. It should work in modern systems. 
+# Alternative, make a Python script to apply. It's Python, so everything can be done nicely. 
+# Most distro should have Python installed, so it's fine. On the other hand, most Windows doesn't. So bad.
 # Maybe you can just throw 9001 scripts in and tell users to try until it works ┐(´～`；)┌
-# Rewrite comments here while you're working pls
 def createPatch():
 	import os, codecs, shutil
 
-	# Open pre-made applying scripts; replace '%basefile%' and '%patchedfile%';
-	# and then save it to output folder
-	# Copy xdelta3 binaries, too
 	def generateApplyScripts(outputFolder, baseFile, patchedFile):
 
-		# Pure ASCII path
-		if (isPureAscii(baseFile) and isPureAscii(patchedFile)):
-			applyScripts = ['apply_patch_linux.sh', 'apply_patch_mac.command', 'apply_patch_windows.bat']
-			for s in applyScripts:
-				base = os.path.join(repo, s)
-				targ = os.path.join(outputFolder, s.replace('_alternative', ''))
-				if os.path.isfile(base):
-					f = codecs.open(base, "r", "utf-8")
-					f2 = codecs.open(targ, 'w', 'utf-8')
-					content = f.read()
-					f.close()
-					content = content.replace(r'%basefile%', baseFile)
-					content = content.replace(r'%patchedfile%', patchedFile)
-					f2.write(content)
-					f2.close()
-		else:
-			# These alternative scripts only need copying as is
-			applyScripts = ['apply_patch_linux_alternative.sh', 'apply_patch_mac_alternative.command', 'apply_patch_windows_alternative.bat']
-			for s in applyScripts:
-				base = os.path.join(repo, s)
-				targ = os.path.join(outputFolder, s.replace('_alternative', ''))
-				shutil.copy2(base, targ)
+		# Linux/Mac bash scripts can be UTF-8. Should work fine in recent distro for both pure ascii and non-ascii base/patched.
+		# how_to_apply_this_patch.txt goes here, too 
+		applyScripts = ['apply_patch_linux.sh', 'apply_patch_mac.command', 'how_to_apply_this_patch.txt']
+		for s in applyScripts:
+			base = os.path.join(repo, s)
+			targ = os.path.join(outputFolder, s)
+			if os.path.isfile(base):
+				f = codecs.open(base, "r", "utf-8")
+				f2 = codecs.open(targ, 'w', 'utf-8')
+				content = f.read()
+				f.close()
+				content = content.replace(u'&basefile&', baseFile).replace(u'&patchedfile&', patchedFile)
+				f2.write(content)
+				f2.close()
 
+		# Windows script is a pain
+		if (isPureAscii(baseFile) and isPureAscii(patchedFile)):
+			painScripts = 'apply_patch_windows.bat'
+		else:
+			painScripts = 'apply_patch_windows_for_non_ascii.bat'
+
+		base = os.path.join(repo, painScripts)
+		targ = os.path.join(outputFolder, 'apply_patch_windows.bat')
+		if os.path.isfile(base):
+			f = codecs.open(base, "r", "utf-8")
+			f2 = codecs.open(targ, 'w', 'utf-8')
+			content = f.read()
+			f.close()
+			content = content.replace(u'&basefile&', baseFile).replace(u'&patchedfile&', patchedFile)
+			if not (isPureAscii(baseFile)):
+				content = content.replace(u'set movebasefile=0', u'set movebasefile=1')
+			if not (isPureAscii(patchedFile)):
+				content = content.replace(u'set movepatchedfile=0', u'set movepatchedfile=1')
+			if ']' in baseFile:
+				content = content.replace(u'set basefiletmp=%basefile%', u'set basefiletmp="%basefile%"')
+			f2.write(content)
+			f2.close()
+
+		# These alternative scripts only need copying as is
+		applyScripts = ['apply_patch_linux_alternative.sh', 'apply_patch_mac_alternative.command', 'apply_patch_windows_alternative.bat']
+		for s in applyScripts:
+			base = os.path.join(repo, s)
+			targ = os.path.join(outputFolder, s)
+			if os.path.isfile(base):
+				shutil.copy2(base, targ)
 
 		binaries = ['xdelta3', 'xdelta3.exe', 'xdelta3.x86_64']
 
@@ -786,29 +791,47 @@ def createPatch():
 	def createPatchSub(outputFolder, baseFile, patchedFile):
 		def swap(a, b):
 			return b, a
-		# try:
-		# 	shutil.rmtree(outputFolder, True)
-		# except:
-		# 	doNothing = 1
-		# give it some tries
-		error = ''
-		for n in range(5):
-			try:
-				os.makedirs(outputFolder)
-				break
-			except Exception as e:				
-				if python2:
-					error = unicode(e)
-				else:
-					error = str(e)
-				#print(error)
-		if not os.path.isdir(outputFolder):
-			print("Couldn't created folder '%s': %s" % (outputFolder, error))
+
+		if os.path.isdir(outputFolder):
+			# try to clear the content of the folder if it exists
+			for root, dirs, files in os.walk(outputFolder):
+				for f in files:
+					try:
+						os.unlink(os.path.join(root, f))
+					except:
+						doNothing = 1
+				for d in dirs:
+					try:
+						shutil.rmtree(os.path.join(root, d))
+					except:
+						doNothing = 1
+		else:
+			# or create it if it doesn't
+			error = ''
+			for n in range(10):
+				try:
+					os.makedirs(outputFolder)
+					break
+				except Exception as e:				
+					if python2:
+						error = unicode(e)
+					else:
+						error = str(e)
+					#print(error)
+			if not os.path.isdir(outputFolder):
+				print("Couldn't created folder '%s': %s" % (outputFolder, error))
 
 		dummy, baseFileName = os.path.split(baseFile)
 		dummy, patchedFileName = os.path.split(patchedFile)
 
-		xparams = [xdelta3Path, '-A=%s//%s/' % (patchedFileName, baseFileName), '-D', '-R', '-f', '-e', '-s']
+		xparams = [xdelta3Path]
+		if nonAsciiParamsWorking:
+			xparams.append('-A=%s//%s/' % (patchedFileName, baseFileName))
+		else:
+			xparams.append('-A=%s//%s/' % (removeNonAscii(patchedFileName), removeNonAscii(baseFileName))) # will make alternative scripts not working
+
+		xparams += ['-D', '-R', '-f', '-e', '-s']
+
 
 		# to deal with problem when xdelta3 can't open the file we give it because incorrect paramenter encoding
 		# we temporarily rename it to something and rename it back later
@@ -839,7 +862,6 @@ def createPatch():
 		xparams.append(patchedFile)
 		xparams.append(os.path.join(outputFolder, 'changes.vcdiff'))
 
-		xparams = encodeList(xparams)
 		log, returnCode, error = executeTask(xparams)
 
 		# move them back
@@ -1074,7 +1096,7 @@ def checkUnicodeSupport():
 
 def initStuff():
 	import sys
-	global defaultTimer, terminalSupportUnicode, cpuCount, logFileName, python2, win32
+	global defaultTimer, terminalSupportUnicode, cpuCount, logFileName, python2, win32, nonAsciiParamsWorking
 
 	if not logInAppFolder:
 		logFileName = os.path.join(baseFolder, logFileName)
@@ -1132,6 +1154,16 @@ def initStuff():
 	if sys.platform == 'win32':
 		win32 = True
 
+	# test if non-ascii paramenters works
+	try:
+		tparams = [xdelta3Path, u'(✿◠‿◠)', u'「いなり、こんこん、恋いろは。」番宣ＰＶ']
+		log, returnCode, error = executeTask(tparams)
+		nonAsciiParamsWorking = True
+	except (UnicodeEncodeError, UnicodeDecodeError):
+		nonAsciiParamsWorking = False
+	except:
+		doNothing = 1
+
 def cleanUp():
 	if logFile != None:
 		logFile.close()
@@ -1145,7 +1177,7 @@ if dontMux:
 
 # run premuxing cleanup (same versions, etc.)
 if plsRemoveSameVersion and sameVersionFound:
-	printAndLog('Removing same-version files...')
+	printAndLog('Removing same-version file(s)...')
 	premuxCleanup()
 
 # Muxing
