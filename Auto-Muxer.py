@@ -43,6 +43,7 @@ stopAfterMuxing = False
 debug = False
 verbose = True
 python2 = False
+win32 = False
 
 plsWriteLogs = True
 logFile = None
@@ -57,7 +58,8 @@ terminalSupportUnicode = False
 # basic inputs
 episode = 1
 version = 7
-groupTag = u'(✿◠‿◠)'
+#groupTag = u'(✿◠‿◠)'
+groupTag = u'Hue'
 showName = u'Pupa'
 baseFolder = u'F:\newlycomer\2013-fuyu\dunno\Pupa\$2ep$'
 baseFolder = u'/media/yumi/DATA/newlycomer/2013-fuyu/dunno/Pupa/$2ep$/'
@@ -814,7 +816,7 @@ def createPatch():
 		patchedFileMoved = False
 		baseFileTmp = os.path.join(baseFolder, 'baseFileTmp')
 		patchedFileTmp = os.path.join(baseFolder, 'patchedFileTmp')
-		if not (isPureAscii(baseFile)):
+		if (not isPureAscii(baseFile)) and win32:
 			try:
 				shutil.move(baseFile, baseFileTmp)
 				baseFileMoved = True
@@ -823,7 +825,7 @@ def createPatch():
 			except:
 				doNothing = 1
 				writeToLog2("Couldn't moved baseFile!")
-		if not (isPureAscii(patchedFile)):
+		if (not isPureAscii(patchedFile)) and win32:
 			try:
 				shutil.move(patchedFile, patchedFileTmp)
 				patchedFileMoved = True
@@ -1072,7 +1074,7 @@ def checkUnicodeSupport():
 
 def initStuff():
 	import sys
-	global defaultTimer, terminalSupportUnicode, cpuCount, logFileName, python2
+	global defaultTimer, terminalSupportUnicode, cpuCount, logFileName, python2, win32
 
 	if not logInAppFolder:
 		logFileName = os.path.join(baseFolder, logFileName)
@@ -1116,6 +1118,7 @@ def initStuff():
 
 	cpuCount = getCpuCount()
 
+	# python version
 	if sys.version_info[0] < 3:
 		python2 = True
 
@@ -1124,6 +1127,10 @@ def initStuff():
 		printAndLog(sVersion)
 	else:
 		writeToLog2(sVersion)
+
+	# platform
+	if sys.platform == 'win32':
+		win32 = True
 
 def cleanUp():
 	if logFile != None:
