@@ -1,18 +1,20 @@
 #!/usr/bin/python
 # encoding: utf-8
 
-# TODO: 
+# TODO:
 # - verify video format when searching [low].
 # - write a not-so-useless readme [medium]
-# - support multiple subtitles [medium]
+# - support multiple subtitles [high]
+# - accept paramenters [medium][after multiple subtitles supports]
 # - support winrar [low]
 #
-# STALLED:
-# - deal with patches for non-ascii filenames [medium]: It does create patches, but they won't work. 
-#   xdelta3 does save filenames in vcdiff, but because of paramenters encoding problem, these filenames are all ???
+# INCOMPLETE:
+# - deal with patches for non-ascii filenames [medium]: 
+#   + On Windows: It does create patches successfully, but they won't work. 
+#   xdelta3 saves filenames in vcdiff, but because of paramenters encoding problem, these names are all ???
 #   That's the same reason xdelta3 can't open the files with non-ascii names I give, and I had to wrote some codes
-#   to rename them to pure ascii name before and rename back after. It's fruitless, though.
-#   Supporting non-ascii on Python 2 is even more :effort:, so it was halted. Pls use only pure ascii filenames.
+#   to rename them to pure ascii name before and rename back after. Pls use only pure ascii filenames/folders.
+#   + On Linux: This works nicely on Python 2/3 & LinuxMint 16. 
 #
 # DONE:
 # - writing logs [medium]
@@ -40,6 +42,8 @@ stopAfterMuxing = False
 
 debug = False
 verbose = True
+python2 = False
+
 plsWriteLogs = True
 logFile = None
 logFileName = 'muxing_log.txt'
@@ -53,42 +57,42 @@ terminalSupportUnicode = False
 # basic inputs
 episode = 1
 version = 7
-groupTag = 'Hue'
-showName = 'Pupa'
-baseFolder = r'F:\newlycomer\2013-fuyu\dunno\Pupa\$2ep$'
-#baseFolder = r'/media/yumi/DATA/newlycomer/2013-fuyu/dunno/Pupa/$2ep$/'
-subtitle = r"Pupa ? $2ep$.ass"
-video = r"*premux*.mkv"
-fonts = r"fonts" # the folder containing fonts inside base folder
-chapters = r"Pupa - $2ep$.chapter?.txt"
-title = r"Pupa - $2ep$"
-output = r'[$tag$] $show$ - $2ep$ [$crc$].mkv'
-output_v2 = r'[$tag$] $show$ - $2ep$v$ver$ [$crc$].mkv'
-output_tmp = r'muxed.mkv'
-previousVersion = r'[$tag$] $show$ - $2ep$v$lver$ [$crc$].mkv'
+groupTag = u'(✿◠‿◠)'
+showName = u'Pupa'
+baseFolder = u'F:\newlycomer\2013-fuyu\dunno\Pupa\$2ep$'
+baseFolder = u'/media/yumi/DATA/newlycomer/2013-fuyu/dunno/Pupa/$2ep$/'
+subtitle = u"Pupa ? $2ep$.ass"
+video = u"*premux*.mkv"
+fonts = u"fonts" # the folder containing fonts inside base folder
+chapters = u"Pupa - $2ep$.chapter?.txt"
+title = u"Pupa - $2ep$"
+output = u'[$tag$] $show$ - $2ep$ [$crc$].mkv'
+output_v2 = u'[$tag$] $show$ - $2ep$v$ver$ [$crc$].mkv'
+output_tmp = u'muxed.mkv'
+previousVersion = u'[$tag$] $show$ - $2ep$v$lver$ [$crc$].mkv'
 previousVersionFound = False
 sameVersion = ''
 sameVersionFound = False
 
 # track languages and names
-video_Name = r"H.264 720p"
-video_Lang = r"jpn"
-audio_Name = r"AAC LC 2.0"
-audio_Lang = r"jpn"
-subtitle_Name = r"Powered by Engrish(tm)"
-subtitle_Lang = r"eng"
+video_Name = u"H.264 720p"
+video_Lang = u"jpn"
+audio_Name = u"AAC LC 2.0"
+audio_Lang = u"jpn"
+subtitle_Name = u"Powered by Engrish(tm)"
+subtitle_Lang = u"eng"
 
-patchv2_FolderName = r'patch_ep_$2ep$_v$lver$_to_v$ver$'
-patchMux_FolderName = r'patch_ep_$2ep$_mux'
-patchUndoMux_FolderName = r'patch_ep_$2ep$_undo_mux'
+patchv2_FolderName = u'patch_ep_$2ep$_v$lver$_to_v$ver$'
+patchMux_FolderName = u'patch_ep_$2ep$_mux'
+patchUndoMux_FolderName = u'patch_ep_$2ep$_undo_mux'
 patchv2_Created = False
 patchMux_Created = False
 patchUndoMux_Created = False
 
-subtitleArchive = r'[$tag$] $show$ - $2ep$ [sub].7z'
+subtitleArchive = u'[$tag$] $show$ - $2ep$ [sub].7z'
 patchRawArchive = patchMux_FolderName + '.7z'
 patchv2Archive = patchv2_FolderName + '.7z'
-patchAllArchive = r'patch_ep_$2ep$_all.7z'
+patchAllArchive = u'patch_ep_$2ep$_all.7z'
 
 plsAddCrc = True
 plsCreatePatch_Mux = True
@@ -241,6 +245,33 @@ def removeNonAscii(original):
 			result += '?'
 	return result
 
+# Converts text into UTF-16LE bytes
+# Nah, writing this instead of using the built-in one just for fun
+def toUTF16leBytes(text):
+	encodedBytes = bytearray()
+	for c in text:
+		encodedBytes += toUTF16leBytesSub(c)
+	return encodedBytes
+
+# Encodes a single character
+# See RFC 2781, UTF-16, an encoding of ISO 10646 http://www.ietf.org/rfc/rfc2781.txt
+# Reference encoder: Unicode Code Converter http://rishida.net/tools/conversion/
+# Tests done with Notepad++
+def toUTF16leBytesSub(c):
+	import struct
+	U = ord(c)
+	if U < 0x10000:
+		return struct.pack("<H", U)
+	else:
+		U = U - 0x10000
+		W1 = 0xD800
+		W2 = 0xDC00
+		UH = U >> 10
+		UL = U - (UH << 10)
+		W1 ^= UH
+		W2 ^= UL
+		return struct.pack('<HH', W1, W2)
+
 def printHacked(text):
 	try:
 		print(text)
@@ -274,14 +305,35 @@ def writeToLog(text):
 
 	try:
 		if logFile == None:
-			logFile = codecs.open(logFileName, 'a', 'utf-16-le')
+			logFile = codecs.open(logFileName, 'a', 'utf-8')
+	except Exception as e:
+		if python2:
+			error = unicode(e)
+		else:
+			error = str(e)
+		print("Error! Can't open log file: %s" % error)
+
+	try:
 		logFile.write(text)
 		logWriteCount += 1
+	except Exception as e:
+		if python2:
+			# second attempt on Python 2
+			try:
+				logFile.write(removeNonAscii(text))				
+			except Exception as e:
+				error = unicode(e)
+				print("Error! Can't write to log file: %s" % error)
+		else:
+			error = str(e)
+			print("Error! Can't write to log file: %s" % error)
+
+	try:
 		if logWriteCount > 9:
 			logFile.flush()
 			logWriteCount = 0
 	except Exception as e:
-		if sys.version_info[0] < 3:
+		if python2:
 			error = unicode(e)
 		else:
 			error = str(e)
@@ -305,14 +357,13 @@ def getInputList():
 
 		# Basically replaces "?" with ".", "*" with "(.*)", and then escapes all special characters
 		# Finally, locks the end of pattern
-		# Note: Convert the pattern to unicode string first
-		# This file is in utf-8, so you can just assume it
 		def convertPatternToRegex(pattern):
 			specialChars = '.^$*+?{}, \\[]|():=#!<'
 			regex = ''
 
-			if hasattr(pattern, 'decode'):
-				pattern = pattern.decode('utf-8') 
+			# disabled for now
+			# if hasattr(pattern, 'decode'):
+			# 	pattern = pattern.decode('utf-8') 
 
 			# parse pattern
 			for i in range(len(pattern)):
@@ -621,13 +672,13 @@ def addCrc32():
 				buffer = fd.read(blockSize)
 				if len(buffer) == 0: # EOF or file empty. return hash
 					fd.close()
-					if sys.version_info[0] < 3 and crc32 < 0:
+					if python2 and crc32 < 0:
 						crc32 += 2 ** 32
 					return '%08X' % crc32, False
 				crc32 = zlib.crc32(buffer, crc32)
 
 		except Exception as e:
-			if sys.version_info[0] < 3:
+			if python2:
 				error = unicode(e)
 			else:
 				error = str(e)
@@ -698,22 +749,29 @@ def createPatch():
 	# Copy xdelta3 binaries, too
 	def generateApplyScripts(outputFolder, baseFile, patchedFile):
 
-		applyScripts = ['apply_patch_linux.sh', 'apply_patch_mac.command', 'apply_patch_windows.bat']
-		if not (isPureAscii(baseFile) and isPureAscii(patchedFile)):
+		# Pure ASCII path
+		if (isPureAscii(baseFile) and isPureAscii(patchedFile)):
+			applyScripts = ['apply_patch_linux.sh', 'apply_patch_mac.command', 'apply_patch_windows.bat']
+			for s in applyScripts:
+				base = os.path.join(repo, s)
+				targ = os.path.join(outputFolder, s.replace('_alternative', ''))
+				if os.path.isfile(base):
+					f = codecs.open(base, "r", "utf-8")
+					f2 = codecs.open(targ, 'w', 'utf-8')
+					content = f.read()
+					f.close()
+					content = content.replace(r'%basefile%', baseFile)
+					content = content.replace(r'%patchedfile%', patchedFile)
+					f2.write(content)
+					f2.close()
+		else:
+			# These alternative scripts only need copying as is
 			applyScripts = ['apply_patch_linux_alternative.sh', 'apply_patch_mac_alternative.command', 'apply_patch_windows_alternative.bat']
+			for s in applyScripts:
+				base = os.path.join(repo, s)
+				targ = os.path.join(outputFolder, s.replace('_alternative', ''))
+				shutil.copy2(base, targ)
 
-		for s in applyScripts:
-			base = os.path.join(repo, s)
-			targ = os.path.join(outputFolder, s.replace('_alternative', ''))
-			if os.path.isfile(base):
-				f = codecs.open(base, "r", "utf-8")
-				f2 = codecs.open(targ, 'w', 'utf-8')
-				content = f.read()
-				f.close()
-				content = content.replace(r'%basefile%', baseFile)
-				content = content.replace(r'%patchedfile%', patchedFile)
-				f2.write(content)
-				f2.close()
 
 		binaries = ['xdelta3', 'xdelta3.exe', 'xdelta3.x86_64']
 
@@ -737,7 +795,7 @@ def createPatch():
 				os.makedirs(outputFolder)
 				break
 			except Exception as e:				
-				if sys.version_info[0] < 3:
+				if python2:
 					error = unicode(e)
 				else:
 					error = str(e)
@@ -912,7 +970,7 @@ def hasher(fileName):
 				else:
 					ed2kHash = ed2kEndHash.hexdigest()
 
-				if sys.version_info[0] < 3 and crc32 < 0:
+				if python2 and crc32 < 0:
 					crc32 += 2 ** 32
 				return '%08X' % crc32, md4.hexdigest().upper(), md5.hexdigest().upper(), sha1.hexdigest().upper(), sha256.hexdigest().upper(), sha512.hexdigest().upper(), ed2kHash.upper(), False
 
@@ -949,7 +1007,7 @@ def hasher(fileName):
 					ed2kChunkRemain = ed2kChunkSize - dataRemain
 
 	except Exception as e:
-		if sys.version_info[0] < 3:
+		if python2:
 			error = unicode(e)
 		else:
 			error = str(e)
@@ -1014,7 +1072,7 @@ def checkUnicodeSupport():
 
 def initStuff():
 	import sys
-	global defaultTimer, terminalSupportUnicode, cpuCount, logFileName
+	global defaultTimer, terminalSupportUnicode, cpuCount, logFileName, python2
 
 	if not logInAppFolder:
 		logFileName = os.path.join(baseFolder, logFileName)
@@ -1057,6 +1115,9 @@ def initStuff():
 	    defaultTimer = time.time
 
 	cpuCount = getCpuCount()
+
+	if sys.version_info[0] < 3:
+		python2 = True
 
 	sVersion = 'Python version: %d.%d.%d\n' % (sys.version_info[0], sys.version_info[1], sys.version_info[2])
 	if debug:
