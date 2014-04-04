@@ -7,8 +7,8 @@
 # TODO:
 # - verify video format when searching [low].
 # - write a not-so-useless readme [medium]
-# - support multiple subtitles [high]
 # - accept paramenters [medium][after multiple subtitles supports]
+# - accept option file [medium][after paramenters]
 # - support winrar [low]
 #
 # INCOMPLETE/ON PROGRESS:
@@ -24,6 +24,7 @@
 #   + alternative applying scripts for Windows and non-ascii filenames: attempt to patch with temporary names and rename later [high]
 #   + On Windows: works on Windows 7 x64, Python 2.7.6, 3.3.3.
 #   + On Linux: works nicely on Python 2.7.5, 3.3.2 & LinuxMint 16. 
+# - support multiple subtitles [high]
 
 import sys, os, time
 
@@ -59,13 +60,13 @@ nonAsciiParamsWorking = True
 
 # basic inputs
 episode = 1
-version = 10
+version = 11
 groupTag = u'(✿◠‿◠)'
 #groupTag = u'Hue'
 showName = u'Pupa'
 baseFolder = u'F:\\newlycomer\\2013-fuyu\\dunno\\Pupa\\$2ep$'
-#baseFolder = u'/media/yumi/DATA/newlycomer/2013-fuyu/dunno/Pupa/$2ep$/'
-subtitle = u"Pupa ? $2ep$.ass"
+baseFolder = u'/media/yumi/DATA/newlycomer/2013-fuyu/dunno/Pupa/$2ep$/'
+subtitles = [(u"Pupa ? $2ep$.ass", u"Powered by Engrish(tm)", u"eng"), (u"Pupa ? $2ep$ [vie].ass", u"Powered by zZz(tm)", u"vie")] # the first one will set as default
 video = u"*premux*.mkv"
 fonts = u"fonts" # the folder containing fonts inside base folder
 chapters = u"Pupa - $2ep$.chapter?.txt"
@@ -83,8 +84,6 @@ video_Name = u"H.264 720p"
 video_Lang = u"jpn"
 audio_Name = u"AAC LC 2.0"
 audio_Lang = u"jpn"
-subtitle_Name = u"Powered by Engrish(tm)"
-subtitle_Lang = u"eng"
 
 patchv2_FolderName = u'patch_ep_$2ep$_v$lver$_to_v$ver$'
 patchMux_FolderName = u'patch_ep_$2ep$_mux'
@@ -155,9 +154,17 @@ def fillInValue(text):
 	return text
 
 def fillInInputs():
-	global baseFolder, subtitle, video, fonts, chapters, title, output, output_v2, previousVersion, patchv2_FolderName, patchMux_FolderName, patchUndoMux_FolderName, subtitleArchive, patchRawArchive, patchv2Archive, patchAllArchive
-	baseFolder = fillInValue(baseFolder)  
-	subtitle = fillInValue(subtitle)
+	global baseFolder, subtitles, video, fonts, chapters, title, output, output_v2, previousVersion, patchv2_FolderName, patchMux_FolderName, patchUndoMux_FolderName, subtitleArchive, patchRawArchive, patchv2Archive, patchAllArchive
+	baseFolder = fillInValue(baseFolder) 
+
+	subtitles_new = []
+	for s in subtitles:
+		path, name, lang = s
+		path = fillInValue(path)
+		name = fillInValue(name)
+		subtitles_new.append((path, name, lang))
+	subtitles = subtitles_new
+
 	video = fillInValue(video)
 	fonts = fillInValue(fonts)
 	chapters = fillInValue(chapters)
@@ -338,7 +345,7 @@ def writeToLog(text):
 
 def getInputList():
 	import sys, os
-	global fontList, video, subtitle, chapters, previousVersion, previousVersionFound, output, sameVersion, sameVersionFound
+	global fontList, video, subtitles, chapters, previousVersion, previousVersionFound, output, sameVersion, sameVersionFound
 
 	# Similar to fnmatch.filter, but [range] is not supported as it's useless for this purpose
 	# Moreover, fnmatch.filter breaks when the pattern contains [Group tag], which is very common
@@ -487,20 +494,31 @@ def getInputList():
 				printAndLog('Found video file: %s.' % result)
 			video = result
 
-	if os.path.isfile(os.path.join(baseFolder, subtitle)):
-		printAndLog('Found subtitle file: %s.' % subtitle)
-	else:
-		result, pattern = searchForInputs(baseFolder, subtitle, 2)
-		if result == None:
-			printAndLog('Subtitle file not found.')
-			error = True
+	subtitles_new = []
+	for i in range(len(subtitles)):
+		fname, name, lang = subtitles[i]
+		found = False
+		if os.path.isfile(os.path.join(baseFolder, fname)):
+			printAndLog('Found subtitle file #%d: %s.' % (i + 1, fname))
+			found = True
 		else:
-			if not pattern: 
-				printAndLog('Subtitle file "%s" not found, but found "%s".' % (subtitle, result))
-				searched = True
+			result, pattern = searchForInputs(baseFolder, fname, 2)
+			if result == None:
+				printAndLog('Subtitle file #%d "%s" not found.' % (i + 1, fname))
 			else:
-				printAndLog('Found subtitle file: %s.' % result)
-			subtitle = result
+				if not pattern: 
+					printAndLog('Subtitle file #%d "%s" not found, but found "%s".' % (i + 1, fname, result))
+					searched = True
+				else:
+					printAndLog('Found subtitle file #%d: %s.' % (i + 1, result))
+				fname = result
+				found = True
+		if found:
+			subtitles_new.append((fname, name, lang))
+	if len(subtitles_new) > 0:
+		subtitles = subtitles_new
+	else:
+		error = True
 
 	if os.path.isfile(os.path.join(baseFolder, chapters)):
 		printAndLog('Found chapter file: %s.' % chapters)
@@ -584,11 +602,15 @@ def generateMuxCmd():
 	muxParams = muxParams + tmp
 	muxParams.append(os.path.join(baseFolder, video))
 
-	# subtitle
-	tmp = ["--language", "0:%s" % subtitle_Lang, "--track-name", "0:%s" % subtitle_Name, "--default-track", "0:yes", "--forced-track", "0:no", "--compression", "0:zlib", "-s", "0"]
-	tmp += ["-D", "-A", "-T", "--no-global-tags", "--no-chapters"] # don't remove subtitle or attachments
-	muxParams = muxParams + tmp
-	muxParams.append(os.path.join(baseFolder, subtitle))
+	# subtitles
+	for i in range(len(subtitles)):
+		fname, name, lang = subtitles[i]
+		muxParams += ["--language", "0:%s" % lang, "--track-name", "0:%s" % name]
+		if i == 0:
+			muxParams += ["--default-track", "0:yes"]
+		muxParams += ["--forced-track", "0:no", "--compression", "0:zlib", "-s", "0"]
+		muxParams += ["-D", "-A", "-T", "--no-global-tags", "--no-chapters"] # don't remove subtitle or attachments
+		muxParams.append(os.path.join(baseFolder, fname))
 
 	# track order
 	muxParams.append("--track-order")
@@ -1156,7 +1178,7 @@ def initStuff():
 
 	# test if non-ascii paramenters works
 	try:
-		tparams = [xdelta3Path, u'(✿◠‿◠)', u'「いなり、こんこん、恋いろは。」番宣ＰＶ']
+		tparams = [sevenzipPath, u'(✿◠‿◠)', u'「いなり、こんこん、恋いろは。」番宣ＰＶ']
 		log, returnCode, error = executeTask(tparams)
 		nonAsciiParamsWorking = True
 	except (UnicodeEncodeError, UnicodeDecodeError):
