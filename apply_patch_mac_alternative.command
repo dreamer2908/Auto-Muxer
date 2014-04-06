@@ -1,4 +1,5 @@
 #!/bin/bash
+cd "$(dirname "$0")"
 basefile=""
 changes="changes.vcdiff"
 args="$@"
@@ -27,6 +28,6 @@ if [ ! -z "$basefile" ] && [ ! "$basefile" = " " ]; then
 else
     `$app -d -f "$changes"`
 fi
-echo "Done. Press enter to exit."
-read tmp
+mkdir -p old && mv "$basefile" ./old/
+echo "Done."
 exit 0
