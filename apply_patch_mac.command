@@ -1,4 +1,5 @@
 #!/bin/bash
+cd "$(dirname "$0")"
 basefile="&basefile&"
 patchedfile="&patchedfile&"
 changes="changes.vcdiff"
@@ -39,6 +40,6 @@ else
 fi
 echo "Attempting to patch $basefile..."
 `$app -d -f -s "$basefile" "$changes" "$patchedfile"`
-echo "Done. Press enter to exit."
-read tmp
+mkdir -p old && mv "$basefile" ./old/
+echo "Done."
 exit 0
