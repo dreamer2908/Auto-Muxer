@@ -30,6 +30,5 @@ if [ ! -z "$basefile" ] && [ ! "$basefile" = " " ]; then
 else
     `$app -d -f "$changes"`
 fi
-echo "Done. Press enter to exit."
-read tmp
+echo "Done."
 exit 0

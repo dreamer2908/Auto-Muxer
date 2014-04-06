@@ -60,18 +60,19 @@ nonAsciiParamsWorking = True
 
 # basic inputs
 episode = 1
-version = 11
+version = 3
 groupTag = u'(✿◠‿◠)'
 #groupTag = u'Hue'
 showName = u'Pupa'
 baseFolder = u'F:\\newlycomer\\2013-fuyu\\dunno\\Pupa\\$2ep$'
 baseFolder = u'/media/yumi/DATA/newlycomer/2013-fuyu/dunno/Pupa/$2ep$/'
-subtitles = [(u"Pupa ? $2ep$.ass", u"Powered by Engrish(tm)", u"eng"), (u"Pupa ? $2ep$ [vie].ass", u"Powered by zZz(tm)", u"vie")] # the first one will set as default
+subtitles = [(u"Pupa ? $2ep$.ass", u"Powered by Engrish(tm)", u"eng"), (u"Pupa ? $2ep$ [alt].ass", u"Powered by zZz(tm)", u"jpn")] # the first one will set as default
 video = u"*premux*.mkv"
 fonts = u"fonts" # the folder containing fonts inside base folder
 chapters = u"Pupa - $2ep$.chapter?.txt"
 title = u"Pupa - $2ep$"
-output = u'[$tag$] $show$ - $2ep$ [$crc$].mkv'
+output = u''
+output_v1 = u'[$tag$] $show$ - $2ep$ [$crc$].mkv'
 output_v2 = u'[$tag$] $show$ - $2ep$v$ver$ [$crc$].mkv'
 output_tmp = u'muxed.mkv'
 previousVersion = u'[$tag$] $show$ - $2ep$v$lver$ [$crc$].mkv'
@@ -101,7 +102,7 @@ plsAddCrc = True
 plsCreatePatch_Mux = True
 plsCreatePatch_UndoMux = True
 plsCreatePatch_v2 = True
-plsPackStuff = False
+plsPackStuff = True
 plsRemoveSameVersion = True
 
 fontList = []
@@ -154,7 +155,7 @@ def fillInValue(text):
 	return text
 
 def fillInInputs():
-	global baseFolder, subtitles, video, fonts, chapters, title, output, output_v2, previousVersion, patchv2_FolderName, patchMux_FolderName, patchUndoMux_FolderName, subtitleArchive, patchRawArchive, patchv2Archive, patchAllArchive
+	global baseFolder, subtitles, video, fonts, chapters, title, output, output_v1, output_v2, previousVersion, patchv2_FolderName, patchMux_FolderName, patchUndoMux_FolderName, subtitleArchive, patchRawArchive, patchv2Archive, patchAllArchive
 	baseFolder = fillInValue(baseFolder) 
 
 	subtitles_new = []
@@ -177,6 +178,7 @@ def fillInInputs():
 	patchv2Archive = fillInValue(patchv2Archive)
 	patchAllArchive = fillInValue(patchAllArchive)
 	output = fillInValue(output)
+	output_v1 = fillInValue(output_v1)
 	output_v2 = fillInValue(output_v2)
 	previousVersion = fillInValue(previousVersion)
 
@@ -459,7 +461,8 @@ def getInputList():
 				else:
 					pattern = output.replace('$crc$', '*')
 			else:
-				pattern = output.replace('$crc$', '*')
+				pattern = output_v1.replace('$crc$', '*')
+			# print('Version %d: %s' % (wantedVer, pattern))
 			filenames2 = patternMatching(filenames, pattern)
 			if len(filenames2) > 0:
 				return filenames2
@@ -553,6 +556,8 @@ def getInputList():
 
 	if version > 1:
 		output = output_v2
+	else:
+		output = output_v1
 
 	# previous version
 	if plsCreatePatch_v2 and version > 1:
@@ -560,7 +565,7 @@ def getInputList():
 		if len(v1Filename) > 0:
 			previousVersion = v1Filename
 			previousVersionFound = True
-			printAndLog('Found previous version: %s.' % previousVersion)
+			printAndLog('Found previous version: "%s".' % previousVersion)
 
 	# same version
 	if plsRemoveSameVersion:
@@ -671,7 +676,7 @@ def premuxCleanup():
 
 def addCrc32():
 	import shutil, os
-	global finalFile
+	global output
 
 	# Opens the file in binary reading mode, reads data block by block and updates crc32 hash
 	# The final crc32 got by hashing block by block is the same as hashing the whole file at once
@@ -716,8 +721,9 @@ def addCrc32():
 
 	try:
 		shutil.move(oldPath, newName)
-		finalFile = newName
-	except:
+		output = newName
+	except Exception as e:
+		print(e)
 		doNothing = 1
 
 # Dear maintainer (probably myself), if you're working on this function, please spend some time on the EOL problem.
@@ -802,7 +808,7 @@ def createPatch():
 			if os.path.isfile(base):
 				shutil.copy2(base, targ)
 
-		binaries = ['xdelta3', 'xdelta3.exe', 'xdelta3.x86_64']
+		binaries = ['xdelta3', 'xdelta3.exe', 'xdelta3.x86_64', 'xdelta3_mac']
 
 		for b in binaries:
 			source = os.path.join(repo, b)
@@ -919,21 +925,21 @@ def createPatch():
 	baseFile = os.path.join(baseFolder, video)
 	v1File = os.path.join(baseFolder, previousVersion)
 
-	if len(finalFile) > 1 and len(patchMux_FolderName) > 0 and plsCreatePatch_Mux:
+	if len(output) > 1 and len(patchMux_FolderName) > 0 and plsCreatePatch_Mux:
 		outdir = os.path.join(baseFolder, patchMux_FolderName)
-		error = createPatchSub(outdir, baseFile, finalFile)
+		error = createPatchSub(outdir, baseFile, output)
 		if not error:
 			patchMux_Created = True
 
-	if len(finalFile) > 1 and len(patchUndoMux_FolderName) > 0 and plsCreatePatch_UndoMux:
+	if len(output) > 1 and len(patchUndoMux_FolderName) > 0 and plsCreatePatch_UndoMux:
 		outdir = os.path.join(baseFolder, patchUndoMux_FolderName)
-		error = createPatchSub(outdir, finalFile, baseFile)
+		error = createPatchSub(outdir, output, baseFile)
 		if not error:
 			patchUndoMux_Created = True
 
-	if len(finalFile) > 1 and len(patchv2_FolderName) > 0 and plsCreatePatch_v2 and previousVersionFound:
+	if len(output) > 1 and len(patchv2_FolderName) > 0 and plsCreatePatch_v2 and previousVersionFound:
 		outdir = os.path.join(baseFolder, patchv2_FolderName)
-		error = createPatchSub(outdir, v1File, finalFile)
+		error = createPatchSub(outdir, v1File, output)
 		if not error:
 			patchv2_Created = True
 
@@ -957,7 +963,11 @@ def packFiles():
 		executeTask(zparams)
 
 	if len(subtitleArchive) > 0:
-		packFilesSub(baseFolder, [subtitle, fonts], subtitleArchive)
+		subs = [fonts]
+		for s in subtitles:
+			fname, name, lang = s
+			subs.append(fname)
+		packFilesSub(baseFolder, subs, subtitleArchive)
 	if len(patchRawArchive) > 0 and patchMux_Created:
 		packFilesSub(baseFolder, [patchMux_FolderName], patchRawArchive)
 	if len(patchv2Archive) > 0 and version > 1 and patchv2_Created:
@@ -1062,9 +1072,9 @@ def hasher(fileName):
 def printFileInfo():
 	import os
 
-	fileSize = os.path.getsize(finalFile)
-	dummy, name = os.path.split(finalFile)
-	crc32, md4, md5, sha1, sha256, sha512, ed2k, error = hasher(finalFile)
+	fileSize = os.path.getsize(output)
+	dummy, name = os.path.split(output)
+	crc32, md4, md5, sha1, sha256, sha512, ed2k, error = hasher(output)
 
 	if error == False:
 		printAndLog('Filename: %s' % name)

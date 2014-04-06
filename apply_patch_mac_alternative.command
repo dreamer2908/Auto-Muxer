@@ -28,6 +28,5 @@ if [ ! -z "$basefile" ] && [ ! "$basefile" = " " ]; then
 else
     `$app -d -f "$changes"`
 fi
-mkdir -p old && mv "$basefile" ./old/
 echo "Done."
 exit 0

@@ -42,6 +42,6 @@ else
 fi
 echo "Attempting to patch $basefile..."
 `$app -d -f -s "$basefile" "$changes" "$patchedfile"`
-echo "Done. Press enter to exit."
-read tmp
+mkdir -p old && mv "$basefile" ./old/
+echo "Done."
 exit 0
