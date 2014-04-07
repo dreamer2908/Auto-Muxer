@@ -43,6 +43,7 @@ commonPaths = [r'/bin', r'/sbin', r'/usr/bin/', r'/usr/sbin/', r'/usr/local/bin/
 dontMux = False
 stopAfterMuxing = False
 
+testing = False
 debug = False
 verbose = True
 python2 = False
@@ -64,6 +65,7 @@ version = 3
 groupTag = u'(✿◠‿◠)'
 showName = u'Pupaaaaaaaaaaa'
 baseFolder = u'F:\\newlycomer\\2013-fuyu\\dunno\\Pupa\\$2ep$'
+baseFolder = u'/media/yumi/DATA/newlycomer/2013-fuyu/dunno/Pupa/$2ep$/'
 subtitles = [(u"Pupa ? $2ep$.ass", u"Powered by Engrish(tm)", u"eng"), (u"Pupa ? $2ep$ [alt].ass", u"Powered by zZz(tm)", u"jpn")] # the first one will set as default
 video = u"*premux*"
 fonts = u"fonts" # the folder containing fonts inside base folder
@@ -1427,7 +1429,8 @@ def toUnicodeStr(a):
 	# TODO: do something
 	return a
 
-parseOptionFile('sample_option_file.txt')
+if testing:
+	parseOptionFile('sample_option_file.txt')
 
 parseArgs()
 initStuff()
