@@ -116,22 +116,22 @@ def fillInValue(text):
 
 	specialChars = r'.^$*+?{}, \[]|():=#!<'
 	reg_Ep = re.compile(r'\$(\d)ep\$')
+	reg_EpS = re.compile(r'\$ep\$')
 	reg_Ver = re.compile(r'\$ver\$')
 	reg_Lver = re.compile(r'\$lver\$')
 	reg_Tag = re.compile(r'\$tag\$')
 	reg_Show = re.compile(r'\$show\$')
 	reg_Crc = re.compile(r'\$crc\$')
-	regArray = [reg_Ep, reg_Show, reg_Ver, reg_Lver, reg_Tag, reg_Crc]
+	regArray = [reg_Ep, reg_EpS, reg_Show, reg_Ver, reg_Lver, reg_Tag, reg_Crc]
 
 	def regRepl(matchOjb):
 		# episode number
 		if (matchOjb.re == reg_Ep):
 			formatStr = '%0' + matchOjb.groups(1)[0] +'d'
-			# just return variable episode if it's not a number
-			try:
-				return formatStr % episode
-			except:
-				return episode
+			return formatStr % episode
+		elif (matchOjb.re == reg_EpS):
+			formatStr = '%02d'
+			return formatStr % (version - 1)
 		elif (matchOjb.re == reg_Lver):
 			formatStr = '%d'
 			return formatStr % (version - 1)
@@ -619,8 +619,10 @@ def generateMuxCmd():
 		muxParams.append(os.path.join(baseFolder, fname))
 
 	# track order
+	# track 0 (video) from file #0 (premux) > track 1 (audio) > track 0 from file #1 (subtitle) > file #2 > file 3 > file #4
+	# not really important as long as input files are added in a fixed order like this
 	muxParams.append("--track-order")
-	muxParams.append("0:0,0:1,1:0") # track 0 (video) from file 0 (premux) > track 1 (audio) > track 0 from file 1 (subtitle)
+	muxParams.append("0:0,0:1,1:0,2:0,3:0,4:0") 
 
 	# fonts
 	for i in range(len(fontList)):
