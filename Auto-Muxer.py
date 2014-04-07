@@ -6,9 +6,8 @@
 
 # TODO:
 # - verify video format when searching [low].
-# - write a not-so-useless readme [medium]
-# - accept paramenters [medium][after multiple subtitles supports]
-# - accept option file [medium][after paramenters]
+# - write a not-so-useless readme [high]
+# - workaround to fix problem when filename has ' [ ] and ( ) at the same time like [┐(´～`；)┌] Pupa - 02v2 [C6F47D8B].mkv
 # - support winrar [low]
 #
 # INCOMPLETE/ON PROGRESS:
@@ -25,11 +24,13 @@
 #   + On Windows: works on Windows 7 x64, Python 2.7.6, 3.3.3.
 #   + On Linux: works nicely on Python 2.7.5, 3.3.2 & LinuxMint 16. 
 # - support multiple subtitles [high]
+# - accept paramenters [medium][after multiple subtitles supports]
+# - accept option file [medium][after paramenters]
 
 import sys, os, time
 
 programName = "Auto Muxer"
-programVer = "0.4"
+programVer = "0.5"
 programAuthor = "dreamer2908"
 
 # specify these 3 if application not found error occurs
@@ -51,7 +52,6 @@ plsWriteLogs = True
 logFile = None
 logFileName = u'muxing_log.txt'
 logWriteCount = 0
-logInAppFolder = True
 
 defaultTimer = None
 cpuCount = 1
@@ -62,20 +62,18 @@ nonAsciiParamsWorking = True
 episode = 1
 version = 3
 groupTag = u'(✿◠‿◠)'
-#groupTag = u'Hue'
-showName = u'Pupa'
+showName = u'Pupaaaaaaaaaaa'
 baseFolder = u'F:\\newlycomer\\2013-fuyu\\dunno\\Pupa\\$2ep$'
-baseFolder = u'/media/yumi/DATA/newlycomer/2013-fuyu/dunno/Pupa/$2ep$/'
 subtitles = [(u"Pupa ? $2ep$.ass", u"Powered by Engrish(tm)", u"eng"), (u"Pupa ? $2ep$ [alt].ass", u"Powered by zZz(tm)", u"jpn")] # the first one will set as default
-video = u"*premux*.mkv"
+video = u"*premux*"
 fonts = u"fonts" # the folder containing fonts inside base folder
-chapters = u"Pupa - $2ep$.chapter?.txt"
-title = u"Pupa - $2ep$"
+chapters = u"*chapter*"
+title = u"$show$ - $2ep$"
 output = u''
 output_v1 = u'[$tag$] $show$ - $2ep$ [$crc$].mkv'
 output_v2 = u'[$tag$] $show$ - $2ep$v$ver$ [$crc$].mkv'
 output_tmp = u'muxed.mkv'
-previousVersion = u'[$tag$] $show$ - $2ep$v$lver$ [$crc$].mkv'
+previousVersion = u''
 previousVersionFound = False
 sameVersion = u''
 sameVersionFound = False
@@ -85,6 +83,9 @@ video_Name = u"H.264 720p"
 video_Lang = u"jpn"
 audio_Name = u"AAC LC 2.0"
 audio_Lang = u"jpn"
+# default sub name & lang for new subtitles
+sub_Name = u"Powered by Engrish(tm)"
+sub_Lang = u"eng"
 
 patchv2_FolderName = u'patch_ep_$2ep$_v$lver$_to_v$ver$'
 patchMux_FolderName = u'patch_ep_$2ep$_mux'
@@ -94,13 +95,13 @@ patchMux_Created = False
 patchUndoMux_Created = False
 
 subtitleArchive = u'[$tag$] $show$ - $2ep$ [sub].7z'
-patchRawArchive = patchMux_FolderName + '.7z'
+patchMuxArchive = patchMux_FolderName + '.7z'
 patchv2Archive = patchv2_FolderName + '.7z'
 patchAllArchive = u'patch_ep_$2ep$_all.7z'
 
 plsAddCrc = True
 plsCreatePatch_Mux = True
-plsCreatePatch_UndoMux = True
+plsCreatePatch_UndoMux = False
 plsCreatePatch_v2 = True
 plsPackStuff = True
 plsRemoveSameVersion = True
@@ -155,7 +156,7 @@ def fillInValue(text):
 	return text
 
 def fillInInputs():
-	global baseFolder, subtitles, video, fonts, chapters, title, output, output_v1, output_v2, previousVersion, patchv2_FolderName, patchMux_FolderName, patchUndoMux_FolderName, subtitleArchive, patchRawArchive, patchv2Archive, patchAllArchive
+	global baseFolder, subtitles, video, fonts, chapters, title, output, output_v1, output_v2, previousVersion, patchv2_FolderName, patchMux_FolderName, patchUndoMux_FolderName, subtitleArchive, patchMuxArchive, patchv2Archive, patchAllArchive
 	baseFolder = fillInValue(baseFolder) 
 
 	subtitles_new = []
@@ -174,7 +175,7 @@ def fillInInputs():
 	patchMux_FolderName = fillInValue(patchMux_FolderName)
 	patchUndoMux_FolderName = fillInValue(patchUndoMux_FolderName)
 	subtitleArchive = fillInValue(subtitleArchive)
-	patchRawArchive = fillInValue(patchRawArchive)
+	patchMuxArchive = fillInValue(patchMuxArchive)
 	patchv2Archive = fillInValue(patchv2Archive)
 	patchAllArchive = fillInValue(patchAllArchive)
 	output = fillInValue(output)
@@ -968,8 +969,8 @@ def packFiles():
 			fname, name, lang = s
 			subs.append(fname)
 		packFilesSub(baseFolder, subs, subtitleArchive)
-	if len(patchRawArchive) > 0 and patchMux_Created:
-		packFilesSub(baseFolder, [patchMux_FolderName], patchRawArchive)
+	if len(patchMuxArchive) > 0 and patchMux_Created:
+		packFilesSub(baseFolder, [patchMux_FolderName], patchMuxArchive)
 	if len(patchv2Archive) > 0 and version > 1 and patchv2_Created:
 		packFilesSub(baseFolder, [patchv2_FolderName], patchv2Archive)
 	if len(patchAllArchive) > 0 and (patchv2_Created or patchMux_Created or patchUndoMux_Created):
@@ -1130,8 +1131,8 @@ def initStuff():
 	import sys
 	global defaultTimer, terminalSupportUnicode, cpuCount, logFileName, python2, win32, nonAsciiParamsWorking
 
-	if not logInAppFolder:
-		logFileName = os.path.join(baseFolder, logFileName)
+	# if not logInAppFolder:
+	# 	logFileName = os.path.join(baseFolder, logFileName)
 
 	writeToLog2('------------------------------------------------------------------------------------------------------')
 	writeToLog2('\nInitializing new session...\n')
@@ -1196,12 +1197,240 @@ def initStuff():
 	except:
 		doNothing = 1
 
+def checkSanity():
+	doNothing = 1
+	sane = True
+	if not sane:
+		printReadme()
+		sys.exit(1)
+
 def cleanUp():
 	if logFile != None:
 		logFile.close()
 
+def printReadme():
+	print(' ')
+	print("%s v%s by %s" % (programName, version, author))
+	print(' ')
+	print("Sorry! Readme hasn't been written!")
+
+def parseOptionFile(fname):
+	import codecs, os
+	if os.path.isfile(fname):
+		f = codecs.open(fname, 'r', 'utf-8')
+		args = []
+		for line in f.readlines():
+			line2 = line.strip(' \t\n\r\"')
+			ll = len(line2)
+			i = 0
+			if ' ' in line2:
+				# two args. more than 2 is forbidden
+				while i < ll:
+					if line2[i] == ' ':
+						args.append(line2[0:i])
+						if i < ll - 1:
+							args.append(line2[i:].strip(' \t\n\r\"'))
+						break
+					i += 1
+			else:
+				# only one arg in this line
+				args.append(line2)
+		#print(args)
+		parseArgsSub(args)
+
+def parseArgs():
+	import sys, os
+	if len(sys.argv) > 1:
+		parseArgsSub(sys.argv[1:])
+
+def parseArgsSub(args):
+	global mkvmergePath, xdelta3Path, sevenzipPath
+	global plsWriteLogs, logFileName
+	global episode, version, groupTag, showName
+	global baseFolder, subtitles, video, fonts, chapters, title, video_Name, video_Lang, audio_Name, audio_Lang, sub_Name, sub_Lang
+	global output_v1, output_v2, output_tmp
+	global patchv2_FolderName, patchMux_FolderName, patchUndoMux_FolderName
+	global subtitleArchive, patchMuxArchive, patchv2Archive, patchAllArchive
+	global plsAddCrc, plsCreatePatch_Mux, plsCreatePatch_UndoMux, plsCreatePatch_v2, plsPackStuff, plsRemoveSameVersion
+	global dontMux, stopAfterMuxing, debug, verbose
+
+	def parseInt(a, b):
+		try:
+			return int(args[i+1])			 
+		except Exception as e:
+			if python2:
+				error = unicode(e)
+			else:
+				error = str(e)
+			printAndLog("Can't parse option \"%s %s\": %s" % (a, b, error))
+			return None
+
+	argsCount = len(args)
+	i = 0
+	while i < argsCount:
+		arg = args[i]
+		argLen = len(arg)
+		if argLen < 2:
+			i += 1
+			continue
+		if arg[0] == '@':
+			parseOptionFile(arg[1:])
+		elif arg.startswith('--') and argLen > 2:
+			# parse -- long args
+			arg = arg[2:].lower()
+			# arg with value
+			if arg == 'episode' and i < argsCount - 1:
+				num = parseInt(arg, args[i+1])
+				if num != None:
+					episode = num
+					i += 1
+			elif arg == 'version' and i < argsCount - 1:
+				num = parseInt(arg, args[i+1])
+				if num != None:
+					version = num
+					i += 1
+			elif arg == 'grouptag' and i < argsCount - 1:
+				groupTag = toUnicodeStr(args[i+1])
+				i += 1
+			elif arg == 'showname' and i < argsCount - 1:
+				showName = toUnicodeStr(args[i+1])
+				i += 1
+			elif arg == 'basefolder' and i < argsCount - 1:
+				baseFolder = toUnicodeStr(args[i+1])
+				i += 1
+			elif arg == 'video' and i < argsCount - 1:
+				video = toUnicodeStr(args[i+1])
+				i += 1
+			elif arg == 'fonts' and i < argsCount - 1:
+				fonts = toUnicodeStr(args[i+1])
+				i += 1
+			elif arg == 'chapters' and i < argsCount - 1:
+				chapters = toUnicodeStr(args[i+1])
+				i += 1
+			elif arg == 'title' and i < argsCount - 1:
+				title = toUnicodeStr(args[i+1])
+				i += 1
+			elif arg == 'output_v1' and i < argsCount - 1:
+				output_v1 = toUnicodeStr(args[i+1])
+				i += 1
+			elif arg == 'output_v2' and i < argsCount - 1:
+				output_v2 = toUnicodeStr(args[i+1])
+				i += 1
+			elif arg == 'output_tmp' and i < argsCount - 1:
+				output_tmp = toUnicodeStr(args[i+1])
+				i += 1
+			elif arg == 'title' and i < argsCount - 1:
+				title = toUnicodeStr(args[i+1])
+				i += 1
+			elif arg == 'video_name' and i < argsCount - 1:
+				video_Name = toUnicodeStr(args[i+1])
+				i += 1
+			elif arg == 'video_lang' and i < argsCount - 1:
+				video_Lang = toUnicodeStr(args[i+1])
+				i += 1
+			elif arg == 'audio_name' and i < argsCount - 1:
+				audio_Name = toUnicodeStr(args[i+1])
+				i += 1
+			elif arg == 'audio_lang' and i < argsCount - 1:
+				audio_Lang = toUnicodeStr(args[i+1])
+				i += 1
+			elif arg == 'sub_name' and i < argsCount - 1:
+				sub_Name = toUnicodeStr(args[i+1])
+				i += 1
+			elif arg == 'sub_lang' and i < argsCount - 1:
+				sub_Lang = toUnicodeStr(args[i+1])
+				i += 1
+			elif arg == 'subtitle' and i < argsCount - 1:
+				fname = toUnicodeStr(args[i+1])
+				subtitles.append((fname, sub_Name, sub_Lang))
+				i += 1
+			elif arg == 'patchv2_foldername' and i < argsCount - 1:
+				patchv2_FolderName = toUnicodeStr(args[i+1])
+				i += 1
+			elif arg == 'patchmux_foldername' and i < argsCount - 1:
+				patchMux_FolderName = toUnicodeStr(args[i+1])
+				i += 1
+			elif arg == 'patchundomux_foldername' and i < argsCount - 1:
+				patchUndoMux_FolderName = toUnicodeStr(args[i+1])
+				i += 1
+			elif arg == 'subtitlearchive' and i < argsCount - 1:
+				subtitleArchive = toUnicodeStr(args[i+1])
+				i += 1
+			elif arg == 'patchmuxarchive' and i < argsCount - 1:
+				patchMuxArchive = toUnicodeStr(args[i+1])
+				i += 1
+			elif arg == 'patchv2archive' and i < argsCount - 1:
+				patchv2Archive = toUnicodeStr(args[i+1])
+				i += 1
+			elif arg == 'patchallarchive' and i < argsCount - 1:
+				patchAllArchive = toUnicodeStr(args[i+1])
+				i += 1
+			elif arg == 'mkvmergepath' and i < argsCount - 1:
+				mkvmergePath = toUnicodeStr(args[i+1])
+				i += 1
+			elif arg == 'xdelta3path' and i < argsCount - 1:
+				xdelta3Path = toUnicodeStr(args[i+1])
+				i += 1
+			elif arg == 'sevenzippath' and i < argsCount - 1:
+				sevenzipPath = toUnicodeStr(args[i+1])
+				#print('sevenzipPath = %s' % sevenzipPath)
+				i += 1
+			elif arg == 'logfilename' and i < argsCount - 1:
+				logFileName = toUnicodeStr(args[i+1])
+				i += 1
+			# one without
+			elif  arg == 'plsaddcrc':
+				plsAddCrc = True
+			elif  arg == 'plscreatepatch_mux':
+				plsCreatePatch_Mux = True
+			elif  arg == 'plscreatepatch_undomux':
+				plsCreatePatch_UndoMux = True
+			elif  arg == 'plscreatepatch_v2':
+				plsCreatePatch_v2 = True
+			elif  arg == 'plspackstuff':
+				plsPackStuff = True
+			elif  arg == 'plsremovesameversion':
+				plsRemoveSameVersion = True
+			elif  arg == 'plswritelogs':
+				plsWriteLogs = True
+			elif  arg == 'dontmux':
+				dontMux = True
+			elif  arg == 'stopaftermuxing':
+				stopAfterMuxing = True
+			elif  arg == 'debug':
+				debug = True
+			elif  arg == 'verbose':
+				verbose = True
+
+		elif arg.startswith('-'):
+			doSomething = 1 # parse - short args
+			if arg == 'patch':
+				plsCreatePatch_v2 = True
+				plsCreatePatch_Mux = True
+				plsCreatePatch_UndoMux = True
+			elif arg == 'crc':
+				plsAddCrc = True
+			elif arg == 'd':
+				debug = True
+			elif arg == 'v':
+				verbose = True
+		else:
+			printAndLog('Unreconised paramenter: "%s"' % arg)
+
+		i += 1
+
+	doNothing = 1
+
+def toUnicodeStr(a):
+	# TODO: do something
+	return a
+
+parseOptionFile('sample_option_file.txt')
+
+parseArgs()
 initStuff()
 getInputList()
+checkSanity()
 generateMuxCmd()
 
 if dontMux:
