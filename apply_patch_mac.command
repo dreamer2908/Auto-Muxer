@@ -1,7 +1,7 @@
 #!/bin/bash
 cd "$(dirname "$0")"
-basefile="&basefile&"
-patchedfile="&patchedfile&"
+basefile='&basefile&'
+patchedfile='&patchedfile&'
 changes="changes.vcdiff"
 args="$@"
 if [ -f "$patchedfile" ]; then

@@ -7,7 +7,6 @@
 # TODO:
 # - verify video format when searching [low].
 # - write a not-so-useless readme [high]
-# - workaround to fix problem when filename has ' [ ] and ( ) at the same time like [┐(´～`；)┌] Pupa - 02v2 [C6F47D8B].mkv
 # - support winrar [low]
 #
 # INCOMPLETE/ON PROGRESS:
