@@ -1,3 +1,4 @@
+
 @echo off
 setlocal
 chcp 65001
@@ -33,9 +34,13 @@ if %movepatchedfile% equ 0 set patchedfiletmp=%patchedfile%
 %app% -d -f -s "%basefiletmp%" "%changes%" "%patchedfiletmp%"
 if %movebasefile% equ 1 move "%basefiletmp%" "%basefile%" > nul
 if %movepatchedfile% equ 1 move "%patchedfiletmp%" "%patchedfile%" > nul
-mkdir old
-move "%basefile%" old
-echo Done. Press enter to exit.
+if exist "%patchedfile%" (
+	mkdir old
+	move "%basefile%" old
+	echo Done.
+	exit /b
+)
+echo Error occured! Patching wasn't successful!
 PAUSE
 exit /b
 

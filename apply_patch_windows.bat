@@ -20,9 +20,13 @@ if not exist "%app%" goto filenotfound
 :startnow
 echo Attempting to patch %basefile%...
 %app% -d -f -s "%basefile%" "%changes%" "%patchedfile%"
-mkdir old
-move "%basefile%" old
-echo Done. Press enter to exit.
+if exist "%patchedfile%" (
+	mkdir old
+	move "%basefile%" old
+	echo Done.
+	exit /b
+)
+echo Error occured! Patching wasn't successful!
 PAUSE
 exit /b
 

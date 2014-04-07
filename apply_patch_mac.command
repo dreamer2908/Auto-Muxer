@@ -40,6 +40,8 @@ else
 fi
 echo "Attempting to patch $basefile..."
 `$app -d -f -s "$basefile" "$changes" "$patchedfile"`
-mkdir -p old && mv "$basefile" ./old/
+if [ -f "$patchedfile" ]; then 
+	mkdir -p old && mv "$basefile" ./old/
+fi
 echo "Done."
 exit 0
