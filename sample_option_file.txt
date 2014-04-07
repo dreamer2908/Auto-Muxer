@@ -1,6 +1,6 @@
 --episode 2
 --version 2
---groupTag (✿◠‿◠)
+--groupTag ┐(´～`；)┌
 --showName Pupa
 --basefolder /media/yumi/DATA/newlycomer/2013-fuyu/dunno/Pupa/$2ep$/
 --sub_Name Powered by Engrish(tm)

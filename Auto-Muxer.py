@@ -132,7 +132,7 @@ def fillInValue(text):
 			return formatStr % episode
 		elif (matchOjb.re == reg_EpS):
 			formatStr = '%02d'
-			return formatStr % (version - 1)
+			return formatStr % (episode)
 		elif (matchOjb.re == reg_Lver):
 			formatStr = '%d'
 			return formatStr % (version - 1)
