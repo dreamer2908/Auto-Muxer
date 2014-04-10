@@ -2,41 +2,41 @@
 @echo off
 setlocal
 chcp 65001
-set basefile=&basefile&
-set patchedfile=&patchedfile&
+set sourcefile=&sourcefile&
+set targetfile=&targetfile&
 set app=xdelta3.exe
 set changes=changes.vcdiff
-set basefiletmp=basefile.tmp
-set patchedfiletmp=patchedfile.tmp
-set movebasefile=0
-set movepatchedfile=0
+set sourcefiletmp=sourcefile.tmp
+set targetfiletmp=targetfile.tmp
+set movesourcefile=0
+set movetargetfile=0
 
-if exist "%patchedfile%" (
+if exist "%targetfile%" (
     echo Target file already exists. Press enter to continue and overwrite it, or press Ctrl + C to cancel.
 	set /P bla=  
 )
 if exist "%~1" (
-    set basefile=%~1
+    set sourcefile=%~1
     goto startnow
 )
-if not exist "%basefile%" goto filenotfound
+if not exist "%sourcefile%" goto filenotfound
 if not exist "%changes%" goto filenotfound
 if not exist "%app%" goto filenotfound
 
 :startnow
-echo Attempting to patch %basefile%...
-if %movebasefile% equ 1 (
-	move "%basefile%" "%basefiletmp%" > nul
+echo Attempting to patch %sourcefile%...
+if %movesourcefile% equ 1 (
+	move "%sourcefile%" "%sourcefiletmp%" > nul
 ) else (
-	set basefiletmp=%basefile%
+	set sourcefiletmp=%sourcefile%
 )
-if %movepatchedfile% equ 0 set patchedfiletmp=%patchedfile%
-%app% -d -f -s "%basefiletmp%" "%changes%" "%patchedfiletmp%"
-if %movebasefile% equ 1 move "%basefiletmp%" "%basefile%" > nul
-if %movepatchedfile% equ 1 move "%patchedfiletmp%" "%patchedfile%" > nul
-if exist "%patchedfile%" (
+if %movetargetfile% equ 0 set targetfiletmp=%targetfile%
+%app% -d -f -s "%sourcefiletmp%" "%changes%" "%targetfiletmp%"
+if %movesourcefile% equ 1 move "%sourcefiletmp%" "%sourcefile%" > nul
+if %movetargetfile% equ 1 move "%targetfiletmp%" "%targetfile%" > nul
+if exist "%targetfile%" (
 	mkdir old
-	move "%basefile%" old
+	move "%sourcefile%" old
 	echo Done.
 	exit /b
 )
@@ -45,6 +45,6 @@ PAUSE
 exit /b
 
 :filenotfound 
-echo "The files '%basefile%', '%changes%', and '%app%' must be in the same folder as this script."
+echo "The files '%sourcefile%', '%changes%', and '%app%' must be in the same folder as this script."
 pause
 exit /b

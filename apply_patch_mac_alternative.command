@@ -1,11 +1,11 @@
 #!/bin/bash
 cd "$(dirname "$0")"
-basefile=""
+sourcefile=""
 changes="changes.vcdiff"
 args="$@"
 if [ ! -z "$args" ] && [ ! "$args" = " " ]; then 
     if [ -f "$args" ]; then 
-        basefile=$@
+        sourcefile=$@
     else
         echo "'$args' is not found"
     fi
@@ -23,8 +23,8 @@ else
     exit 1
 fi
 echo "Attempting to patch..."
-if [ ! -z "$basefile" ] && [ ! "$basefile" = " " ]; then 
-    `$app -d -f -s "$basefile" "$changes"`
+if [ ! -z "$sourcefile" ] && [ ! "$sourcefile" = " " ]; then 
+    `$app -d -f -s "$sourcefile" "$changes"`
 else
     `$app -d -f "$changes"`
 fi

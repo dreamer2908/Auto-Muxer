@@ -1,9 +1,9 @@
 #!/bin/bash
-basefile='&basefile&'
-patchedfile='&patchedfile&'
+sourcefile='&sourcefile&'
+targetfile='&targetfile&'
 changes="changes.vcdiff"
 args="$@"
-if [ -f "$patchedfile" ]; then
+if [ -f "$targetfile" ]; then
     echo "Target file already exists. Continue and overwrite? [y/n]"
     read -t 5 choice 2>/dev/null
     if [ "$?" -ne "0" ]; then
@@ -15,14 +15,14 @@ if [ -f "$patchedfile" ]; then
 fi
 if [ ! -z "$args" ] && [ ! "$args" = " " ]; then 
     if [ -f "$args" ]; then 
-        basefile=$@
+        sourcefile=$@
     else
         echo "'$args' is not found"
         read tmp
         exit 1
     fi
-elif [ ! -f "$basefile" ] || [ ! -f "$changes" ]; then
-    echo "The files '$basefile' and '$changes' must be in the same folder as this script."
+elif [ ! -f "$sourcefile" ] || [ ! -f "$changes" ]; then
+    echo "The files '$sourcefile' and '$changes' must be in the same folder as this script."
     exit 1
 fi
 chmod +x ./xdelta3 2>/dev/null
@@ -40,10 +40,10 @@ else
     echo "Please either make sure the file 'xdelta3' has execute rights, install xdelta3 [recommended], or install WinE."
     exit 1
 fi
-echo "Attempting to patch $basefile..."
-`$app -d -f -s "$basefile" "$changes" "$patchedfile"`
-if [ -f "$patchedfile" ]; then 
-	mkdir -p old && mv "$basefile" ./old/
+echo "Attempting to patch $sourcefile..."
+`$app -d -f -s "$sourcefile" "$changes" "$targetfile"`
+if [ -f "$targetfile" ]; then 
+	mkdir -p old && mv "$sourcefile" ./old/
 fi
 echo "Done."
 exit 0

@@ -1,10 +1,10 @@
 #!/bin/bash
-basefile=""
+sourcefile=""
 changes="changes.vcdiff"
 args="$@"
 if [ ! -z "$args" ] && [ ! "$args" = " " ]; then 
     if [ -f "$args" ]; then 
-        basefile=$@
+        sourcefile=$@
     else
         echo "'$args' is not found"
     fi
@@ -24,9 +24,9 @@ else
     echo "Please either make sure the file 'xdelta3' has execute rights, install xdelta3 [recommended], or install WinE."
     exit 1
 fi
-echo "Attempting to patch $basefile..."
-if [ ! -z "$basefile" ] && [ ! "$basefile" = " " ]; then 
-    `$app -d -f -s "$basefile" "$changes"`
+echo "Attempting to patch $sourcefile..."
+if [ ! -z "$sourcefile" ] && [ ! "$sourcefile" = " " ]; then 
+    `$app -d -f -s "$sourcefile" "$changes"`
 else
     `$app -d -f "$changes"`
 fi
