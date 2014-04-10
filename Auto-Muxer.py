@@ -18,11 +18,11 @@
 # - make searchForVer use v2 pattern [high]
 # - support non-number episode [medium]
 # - option to detect and remove previously muxed same-version files [low]
-# - deal with patches for non-ascii filenames [high]: 
+# - deal with patches for non-ascii filenames [high]:
 #   + handle character encoding (output) mess (mostly for windows support--why do I even support windows?) [low]
 #   + alternative applying scripts for Windows and non-ascii filenames: attempt to patch with temporary names and rename later [high]
 #   + On Windows: works on Windows 7 x64, Python 2.7.6, 3.3.3.
-#   + On Linux: works nicely on Python 2.7.5, 3.3.2 & LinuxMint 16. 
+#   + On Linux: works nicely on Python 2.7.5, 3.3.2 & LinuxMint 16.
 # - support multiple subtitles [high]
 # - accept paramenters [medium][after multiple subtitles supports]
 # - accept option file [medium][after paramenters]
@@ -168,7 +168,7 @@ def fillInValue(text):
 
 def fillInInputs():
 	global baseFolder, subtitles, video, fonts, chapters, title, output, output_v1, output_v2, previousVersion, patchv2_FolderName, patchMux_FolderName, patchUndoMux_FolderName, subtitleArchive, patchMuxArchive, patchv2Archive, patchAllArchive
-	baseFolder = fillInValue(baseFolder) 
+	baseFolder = fillInValue(baseFolder)
 
 	subtitles_new = []
 	for s in subtitles:
@@ -284,7 +284,7 @@ def writeToLog2(text):
 	writeToLog(text + '\n')
 
 # Open the file in append mode and write text to it
-# File handle is kept open because re-opening the file 
+# File handle is kept open because re-opening the file
 # every single time something needs writing is a bad idea
 def writeToLog(text):
 	import codecs, sys, os
@@ -314,7 +314,7 @@ def writeToLog(text):
 		if python2:
 			# second attempt on Python 2
 			try:
-				logFile.write(removeNonAscii(text))				
+				logFile.write(removeNonAscii(text))
 			except Exception as e:
 				error = unicode(e)
 				print("Error! Can't write to log file: %s" % error)
@@ -372,7 +372,7 @@ def getInputList():
 			return regex
 
 		regPattern = convertPatternToRegex(pattern)
-		if debug: 
+		if debug:
 			print(regPattern)
 
 		# Ignore case if it's win32
@@ -406,7 +406,7 @@ def getInputList():
 		for (dirpath, dirnames, filenames) in os.walk(baseFolder):
 
 			filenames1 = patternMatching(filenames, pattern)
-			if len(filenames1) > 0: 
+			if len(filenames1) > 0:
 				return filenames1[0], True
 
 			if inputType == 3: # chapters
@@ -431,12 +431,12 @@ def getInputList():
 				namae, ext = os.path.splitext(pattern)
 				# prefer file with the same ext as pattern
 				# if valid ext should start with a dot
-				if ext.startswith('.'): 
+				if ext.startswith('.'):
 					filenames3 = fnmatch.filter(filenames, '*' + ext)
 				else:
 					filenames3 = []
 				filenames3 += fnmatch.filter(filenames, '*.mkv') + fnmatch.filter(filenames, '*.mp4')
-				if len(filenames3) > 0: 
+				if len(filenames3) > 0:
 					return filenames3[0], False
 			break
 		return None, False
@@ -455,7 +455,7 @@ def getInputList():
 			printAndLog('Video file not found.')
 			error = True
 		else:
-			if not pattern: 
+			if not pattern:
 				printAndLog('Video file "%s" not found, but found "%s".' % (video, result))
 				searched = True
 			else:
@@ -474,7 +474,7 @@ def getInputList():
 			if result == None:
 				printAndLog('Subtitle file #%d "%s" not found.' % (i + 1, fname))
 			else:
-				if not pattern: 
+				if not pattern:
 					printAndLog('Subtitle file #%d "%s" not found, but found "%s".' % (i + 1, fname, result))
 					searched = True
 				else:
@@ -496,7 +496,7 @@ def getInputList():
 			printAndLog('Chapter file not found.')
 			warning = True
 		else:
-			if not pattern: 
+			if not pattern:
 				printAndLog('Chapter file "%s" not found, but found "%s".' % (chapters, result))
 				searched = True
 			else:
@@ -609,7 +609,7 @@ def generateMuxCmd():
 	# track 0 (video) from file #0 (premux) > track 1 (audio) > track 0 from file #1 (subtitle) > file #2 > file 3 > file #4
 	# not really important as long as input files are added in a fixed order like this
 	muxParams.append("--track-order")
-	muxParams.append("0:0,0:1,1:0,2:0,3:0,4:0") 
+	muxParams.append("0:0,0:1,1:0,2:0,3:0,4:0")
 
 	# fonts
 	for i in range(len(fontList)):
@@ -671,7 +671,7 @@ def addCrc32():
 	# Opens the file in binary reading mode, reads data block by block and updates crc32 hash
 	# The final crc32 got by hashing block by block is the same as hashing the whole file at once
 	# Same for md4, md5, sha-1, etc.
-	# Python 2.x might return negative crc32. Just add 2^32 to it in that case. 
+	# Python 2.x might return negative crc32. Just add 2^32 to it in that case.
 	# Comfirmed correct by hashing hundreds of files
 	def getCrc32(fileName):
 		import zlib, sys
@@ -679,7 +679,7 @@ def addCrc32():
 		fileSize = os.path.getsize(fileName)
 		blockSize = 2 * 1024 * 1024
 		crc32 = 0
-		
+
 		try:
 			fd = open(fileName, 'rb')
 			while True:
@@ -699,12 +699,12 @@ def addCrc32():
 			return 0, error
 
 	oldPath = os.path.join(baseFolder, output_tmp)
-	
+
 	if version == 1:
 		newName = os.path.join(baseFolder, output)
 	else:
 		newName = os.path.join(baseFolder, output_v2)
-	
+
 	if plsAddCrc:
 		hashS, error = getCrc32(oldPath)
 		newName = newName.replace('$crc$', hashS)
@@ -724,12 +724,12 @@ def addCrc32():
 # \n works for all platforms, but it might be funny if a win32 user tries to open it with a dumb editor like Notepad
 # codecs.* keeps EOL intact, so as long as template files are in correct EOL, output files will be fine.
 #
-# Note about patches: 
+# Note about patches:
 # xdelta3 typically saves paths of source/target files you give it. If you have a vcdiff file called changes.vcdiff
 # and you run "xdelta3 -d changes.vcdiff" (no source/target specified), xdelta3 will use the filenames stored in changes.vcdiff.
-# In early versions, it only saved filenames, no paths. Then, someone asked the author (politely) to keep full paths, so he did. 
+# In early versions, it only saved filenames, no paths. Then, someone asked the author (politely) to keep full paths, so he did.
 # Now you might see some patches with full paths inside, and ofc, you can't just do like above. You must type the full cmd line.
-# "xdelta -d changes.vcdiff source.file target.file". To deal with this, I use paramenter "-A=target.file//source.file/" 
+# "xdelta -d changes.vcdiff source.file target.file". To deal with this, I use paramenter "-A=target.file//source.file/"
 # to set the application specific header in output vcdiff file to filenames only, no paths. Very few people know about this.
 # You can put whatever funny things in that header, btw; output vcdiffs are still valid according to the standard (see rfc3284).
 # Well, imo, it's OK to have full paths in vcdiff. It's just some people think they're better than the rest think the opposite.
@@ -737,17 +737,17 @@ def addCrc32():
 # For pure ASCII filenames, patches should work fine, cross-platform. For non-ASCII filenames, well, they might not.
 # You can put filenames in the script and use the full form of cmd line, but if the interpreter (e.g. MS command prompt)
 # can't be into non-ascii encoding, you're done. Fortunately, sh, shell, dash, etc. in Linux/Unix/Mac can read UTF-8 just fine.
-# The big problem is Windows, as usual - it's Microsoft after all. 
+# The big problem is Windows, as usual - it's Microsoft after all.
 # As said above, xdelta3 saves filenames, so you can use the short form. Looks good? It does *look* good, but the real life is
-# not that simple. xdelta3 doesn't store and load filenames using the same encoding across all platforms: in Windows, it uses 
+# not that simple. xdelta3 doesn't store and load filenames using the same encoding across all platforms: in Windows, it uses
 # UTF-16 (wide char); in Unix/Linux, it uses UTF-8; in Mac, it might be UTF-8, too--I don't have Mac. This is a mess, really.
-# Patches created on Unix won't work on Windows, and vise versa. 
-# However, I came with a few "solutions": 
-# - Encode the script in UTF-8 without BOM, and put "chcp 65001" at the beginning. This asks the command prompt to switch to 
-# UTF-8 encoding, and so, it reads UTF-8 encoded file fine. However, code page 65001 is buggy--even MS developers recommend 
-# against it; I have no idea if it works on many versions of Windows. Moreover, according to my own tests, calling xdelta3 with 
-# non-ascii inputs from an utf-8 batch script doesn't work: xdelta3 doesn't know how to decode the paramenters. However, renaming 
-# files works. So you can rename the source file if its name contains non-ascii chars; tell xdelta3 to output to a file with 
+# Patches created on Unix won't work on Windows, and vise versa.
+# However, I came with a few "solutions":
+# - Encode the script in UTF-8 without BOM, and put "chcp 65001" at the beginning. This asks the command prompt to switch to
+# UTF-8 encoding, and so, it reads UTF-8 encoded file fine. However, code page 65001 is buggy--even MS developers recommend
+# against it; I have no idea if it works on many versions of Windows. Moreover, according to my own tests, calling xdelta3 with
+# non-ascii inputs from an utf-8 batch script doesn't work: xdelta3 doesn't know how to decode the paramenters. However, renaming
+# files works. So you can rename the source file if its name contains non-ascii chars; tell xdelta3 to output to a file with
 # temporary, pure ascii name, and rename it later. It's what I'm using.
 # - Alternative, make a Python script to apply. It's Python, so everything can be done nicely. Most Linux/Unix/Mac installation
 # should have Python installed, so it's fine. On the other hand, most Windows ones don't. So bad.
@@ -758,7 +758,7 @@ def createPatch():
 	def generateApplyScripts(outputFolder, sourceFile, targetFile):
 
 		# Linux/Mac bash scripts can be UTF-8. Should work fine in recent distros for both pure ascii and non-ascii source/target.
-		# how_to_apply_this_patch.txt goes here, too 
+		# how_to_apply_this_patch.txt goes here, too
 		applyScripts = ['apply_patch_linux.sh', 'apply_patch_mac.command', 'how_to_apply_this_patch.txt']
 		for s in applyScripts:
 			src = os.path.join(repo, s)
@@ -835,7 +835,7 @@ def createPatch():
 				try:
 					os.makedirs(outputFolder)
 					break
-				except Exception as e:				
+				except Exception as e:
 					if python2:
 						error = unicode(e)
 					else:
@@ -956,7 +956,7 @@ def packFiles():
 		# attempt to delete output file to prevent 7z from adding files to it
 		for i in range(10): # give it 10 chances
 			try:
-				os.remove(zoutput) 
+				os.remove(zoutput)
 				break
 			except:
 				doNothing = 1
@@ -976,13 +976,13 @@ def packFiles():
 	if len(patchAllArchive) > 0 and (patchv2_Created or patchMux_Created or patchUndoMux_Created):
 		fileList = []
 		# only add to fileList if that type of patch is enabled as the folder might already exist
-		if patchv2_Created: fileList.append(patchv2_FolderName) 
+		if patchv2_Created: fileList.append(patchv2_FolderName)
 		if patchMux_Created: fileList.append(patchMux_FolderName)
 		if patchUndoMux_Created: fileList.append(patchUndoMux_FolderName)
 		packFilesSub(baseFolder, fileList, patchAllArchive)
 
 # ED2K is a pain because of its fixed-size chunk
-# when multi-thread is emplemented, this shouldn't be a problem since we can use ED2K chunk size as block size 
+# when multi-thread is emplemented, this shouldn't be a problem since we can use ED2K chunk size as block size
 # without causing performance loss
 def hasher(fileName):
 	import math, os, sys, hashlib, zlib
@@ -1148,15 +1148,15 @@ def initStuff():
 
 	if not foundAll:
 		printAndLog('Error: Not all required applications found.')
-		if mkvmergePath == None: 
+		if mkvmergePath == None:
 			printAndLog('mkvmerge not found')
 		else:
 			writeToLog2('Found mkvmerge: %s' % mkvmergePath)
-		if sevenzipPath == None: 
+		if sevenzipPath == None:
 			printAndLog('7z not found')
 		else:
 			writeToLog2('Found 7-zip: %s' % sevenzipPath)
-		if xdelta3Path == None: 
+		if xdelta3Path == None:
 			printAndLog('xdelta3 not found')
 		else:
 			writeToLog2('Found xdelta3: %s' % mkvmergePath)
@@ -1164,11 +1164,11 @@ def initStuff():
 	else:
 		writeToLog2('Found mkvmerge: %s' % mkvmergePath)
 		writeToLog2('Found 7-zip: %s' % sevenzipPath)
-		writeToLog2('Found xdelta3: %s' % xdelta3Path)		
+		writeToLog2('Found xdelta3: %s' % xdelta3Path)
 
 	terminalSupportUnicode = checkUnicodeSupport()
 	writeToLog2('Terminal supporting non-ASCII: %r' % terminalSupportUnicode)
-	
+
 	# Stats setup
 	if sys.platform == 'win32':
 	    # On Windows, the best timer is time.clock
@@ -1222,7 +1222,7 @@ def printReadme():
 
 
 # Arguments/paramenters and option files work as following:
-# Args from sys.argv and option files are combined in ariving order. 
+# Args from sys.argv and option files are combined in ariving order.
 # Options and their paramenters can be split into serveral parts.
 # For example: python Auto-Muxer.py --episode 2 @option_file1 1 --basefolder @option_file2
 # The last line of option_file1 is "--version"
@@ -1290,7 +1290,7 @@ def parseArgsSub(args):
 
 	def parseInt(a, b):
 		try:
-			return int(args[i+1])			 
+			return int(args[i+1])
 		except Exception as e:
 			if python2:
 				error = unicode(e)
@@ -1500,8 +1500,8 @@ if stopAfterMuxing:
 
 # adding CRC-32
 printAndLog('Adding CRC-32...')
-startTime = defaultTimer()	
-addCrc32()	
+startTime = defaultTimer()
+addCrc32()
 endTime = defaultTimer()
 crcTime = endTime - startTime
 
