@@ -18,7 +18,7 @@ if not exist "%changes%" goto filenotfound
 if not exist "%app%" goto filenotfound
 
 :startnow
-echo Attempting to patch %sourcefile%...
+echo Attempting to patch "%sourcefile%"...
 %app% -d -f -s "%sourcefile%" "%changes%" "%targetfile%"
 if exist "%targetfile%" (
 	mkdir old
@@ -31,6 +31,6 @@ PAUSE
 exit /b
 
 :filenotfound 
-echo "The files '%sourcefile%', '%changes%', and '%app%' must be in the same folder as this script."
+echo The files "%sourcefile%", "%changes%", and "%app%" must be in the same folder as this script!
 pause
 exit /b

@@ -728,6 +728,7 @@ def addCrc32():
 # xdelta3 typically saves paths of source/target files you give it. If you have a vcdiff file called changes.vcdiff
 # and you run "xdelta3 -d changes.vcdiff" (no source/target specified), xdelta3 will use the filenames stored in changes.vcdiff.
 # In early versions, it only saved filenames, no paths. Then, someone asked the author (politely) to keep full paths, so he did.
+# See http://code.google.com/p/xdelta/issues/detail?id=38. He never marked it as done, though.
 # Now you might see some patches with full paths inside, and ofc, you can't just do like above. You must type the full cmd line.
 # "xdelta -d changes.vcdiff source.file target.file". To deal with this, I use paramenter "-A=target.file//source.file/"
 # to set the application specific header in output vcdiff file to filenames only, no paths. Very few people know about this.
@@ -754,6 +755,20 @@ def addCrc32():
 # You can just throw 9001 scripts in and tell users to try until it works ┐(´～`；)┌
 def createPatch():
 	import os, codecs, shutil
+
+	# %^& must be escaped. \/<>"*:?| are forbidden in win32 filenames. []()!=,;`' work, so not needed
+	def escapeStringForBatch(text):
+		result = u''
+		for char in text:
+			if char == u'%':
+				result += u'%%'
+			elif char == u'&':
+				result += u'^&'
+			elif char == u'^':
+				result += u'^^'
+			else:
+				result += char
+		return result
 
 	def generateApplyScripts(outputFolder, sourceFile, targetFile):
 
@@ -785,7 +800,7 @@ def createPatch():
 			f2 = codecs.open(targ, 'w', 'utf-8')
 			content = f.read()
 			f.close()
-			content = content.replace(u'&sourcefile&', sourceFile).replace(u'&targetfile&', targetFile)
+			content = content.replace(u'&sourcefile&', escapeStringForBatch(sourceFile)).replace(u'&targetfile&', escapeStringForBatch(targetFile))
 			if not (isPureAscii(sourceFile)):
 				content = content.replace(u'set movesourcefile=0', u'set movesourcefile=1')
 			if not (isPureAscii(targetFile)):
@@ -844,8 +859,8 @@ def createPatch():
 			if not os.path.isdir(outputFolder):
 				print("Couldn't created folder '%s': %s" % (outputFolder, error))
 
-		dummy, sourceFileName = os.path.split(sourceFile)
-		dummy, targetFileName = os.path.split(targetFile)
+		sourceFolder, sourceFileName = os.path.split(sourceFile)
+		targetFolder, targetFileName = os.path.split(targetFile)
 
 		xparams = [xdelta3Path]
 		if nonAsciiParamsWorking:
@@ -858,10 +873,11 @@ def createPatch():
 
 		# to deal with problem when xdelta3 can't open the file we give it because incorrect paramenter encoding
 		# we temporarily rename it to something and rename it back later. Only needed in win32 (for now) or when not nonAsciiParamsWorking.
+		# still breaks if the folder itself contains non-ascii chars
 		sourceFileMoved = False
 		targetFileMoved = False
-		sourceFileTmp = os.path.join(baseFolder, 'sourceFileTmp')
-		targetFileTmp = os.path.join(baseFolder, 'targetFileTmp')
+		sourceFileTmp = os.path.join(sourceFolder, 'sourceFileTmp')
+		targetFileTmp = os.path.join(targetFolder, 'targetFileTmp')
 		if not isPureAscii(sourceFile) and (nonAsciiParamsWorking or win32):
 			try:
 				shutil.move(sourceFile, sourceFileTmp)
