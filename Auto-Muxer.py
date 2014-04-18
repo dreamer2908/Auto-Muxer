@@ -756,6 +756,8 @@ def addCrc32():
 def createPatch():
 	import os, codecs, shutil
 
+	forceNonAsciiMode = False
+
 	# %^& must be escaped. \/<>"*:?| are forbidden in win32 filenames. []()!=,;`' work, so not needed
 	def escapeStringForBatch(text):
 		result = u''
@@ -788,7 +790,7 @@ def createPatch():
 				f2.close()
 
 		# Windows script is a pain
-		if (isPureAscii(sourceFile) and isPureAscii(targetFile)):
+		if (isPureAscii(sourceFile) and isPureAscii(targetFile)) and not forceNonAsciiMode:
 			painScripts = 'apply_patch_windows.bat'
 		else:
 			painScripts = 'apply_patch_windows_for_non_ascii.bat'
@@ -801,12 +803,10 @@ def createPatch():
 			content = f.read()
 			f.close()
 			content = content.replace(u'&sourcefile&', escapeStringForBatch(sourceFile)).replace(u'&targetfile&', escapeStringForBatch(targetFile))
-			if not (isPureAscii(sourceFile)):
+			if not (isPureAscii(sourceFile)) or forceNonAsciiMode:
 				content = content.replace(u'set movesourcefile=0', u'set movesourcefile=1')
-			if not (isPureAscii(targetFile)):
+			if not (isPureAscii(targetFile)) or forceNonAsciiMode:
 				content = content.replace(u'set movetargetfile=0', u'set movetargetfile=1')
-			if ']' in sourceFile:
-				content = content.replace(u'set sourcefiletmp=%sourcefile%', u'set sourcefiletmp="%sourcefile%"')
 			f2.write(content)
 			f2.close()
 
