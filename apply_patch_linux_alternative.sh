@@ -1,4 +1,6 @@
 #!/bin/bash
+set -o nounset
+set -o errexit
 sourcefile=""
 changes="changes.vcdiff"
 args="$@"
@@ -21,10 +23,10 @@ elif hash wine 2>/dev/null && [ -f "xdelta3.exe" ]; then
     app="wine ./xdelta3.exe"
 else
     echo "The required application is not found or inaccessible."
-    echo "Please either make sure the file 'xdelta3' has execute rights, install xdelta3 [recommended], or install WinE."
+    echo "Please either make sure the file \"xdelta3\" has execute rights, install xdelta3 [recommended], or install WinE."
     exit 1
 fi
-echo "Attempting to patch $sourcefile..."
+echo "Attempting to patch..."
 if [ ! -z "$sourcefile" ] && [ ! "$sourcefile" = " " ]; then 
     `$app -d -f -s "$sourcefile" "$changes"`
 else

@@ -14,7 +14,7 @@ if not exist "%sourcefile%" (
 	if exist "..\%sourcefile%" (
 		set "sourcefile=..\%sourcefile%"
 		set "targetfile=..\%targetfile%"
-		set olddir=..\%olddir%
+		set "olddir=..\%olddir%"
 	) else (goto filenotfound)
 )
 if not exist "%changes%" goto filenotfound

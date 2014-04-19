@@ -1,7 +1,7 @@
 Hi there! Yes, you!
 
 In short:
-- Move your original file (&sourcefile&) into this folder. In future, I might make the script search for it, but just do as I say for now.
+- Move your original file (&sourcefile&) into this folder, or this folder's parent folder. For example: all these patches/scripts/bundled applications are in folder Animu/Nourin/patch_ep_01_v2. You should put it in either Nourin, or patch_ep_01_v2. These scripts will first look for it in patch_ep_01_v2; if it can't find it there, it will look in Nourin. If the file can't be found in these two location, the scripts will give up. Please don't troll these poor scripts.
 - Run the applying script written for your operating system: for Windows, apply_patch_windows.bat; for Linux/Unix, apply_patch_linux.sh; for Mac OSX, apply_patch_mac.command.
 - Check if a new file is created (&targetfile&). If it was, you're successful; stop here.
 - If it isn't, try the alternative script.
@@ -9,7 +9,7 @@ In short:
 
 You might want to check for some system requirements:
 - A *working* computer.
-- A *working* and *modern* PC operating system (Windows, Linux, Unix, Mac OSX).
+- A *working* and *modern* PC operating system (Windows, Linux, Unix, Mac OSX). I don't support WinXP or anything older, but patches might work fine.
 - For Mac OSX: a guy has provided me with a Mac binary, but seriously, you should install xdelta3 package.
 - For Linux/Unix: either xdelta3 package installed, WinE package installed, or included Linux binaries' permission set to executable.
 - For Windows: nothing prevents the script from executing the binary file xdelta3.exe.
