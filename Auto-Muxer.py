@@ -70,12 +70,11 @@ nonAsciiParamsWorking = True
 
 # basic inputs. ALL STRINGS MUST BE UNICODE STRINGS
 episode = 1
-version = 3
+version = 1
 groupTag = u'(✿◠‿◠)'
-showName = u'Pupaaaaaaaaaaa'
-baseFolder = u'F:\\newlycomer\\2013-fuyu\\dunno\\Pupa\\$2ep$'
-baseFolder = u'/media/yumi/DATA/newlycomer/2013-fuyu/dunno/Pupa/$2ep$/'
-subtitles = [(u"Pupa ? $2ep$.ass", u"Powered by Engrish(tm)", u"eng"), (u"Pupa ? $2ep$ [alt].ass", u"Powered by zZz(tm)", u"jpn")]
+showName = u''
+baseFolder = u''
+subtitles = []
 video = u"*premux*"
 fonts = u"fonts" # the folder containing fonts inside base folder
 chapters = u"*chapter*"
@@ -448,7 +447,7 @@ def getInputList():
 			break
 		return None, False
 
-	printAndLog('Gathering inputs...')
+	printAndLog('Gathering inputs from folder "%s"...' % baseFolder)
 	fillInInputs()
 	error = False
 	warning = False
@@ -1435,6 +1434,12 @@ def parseArgsSub(args):
 				logFileName = toUnicodeStr(args[i+1])
 				i += 1
 			# one without
+			elif  arg == 'clear': # reset to "virgin" state
+				video = u''
+				subtitles = []
+				fonts = u''
+				groupTag = u''
+				showname = u''
 			elif  arg == 'plsaddcrc':
 				plsAddCrc = True
 			elif  arg == 'plscreatepatch_mux':
