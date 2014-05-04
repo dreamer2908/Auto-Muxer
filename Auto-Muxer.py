@@ -9,6 +9,8 @@
 # - write a not-so-useless readme [high]
 # - support winrar [low]
 # - automatically raise source window size if | filesize(source) - filesize(target) | > 16 MiB. To a dynamic limit, though.
+# - Deal with cases when both folder and filenames are non-ascii (using working dir)
+# - Comment about how scripts work. Let's pray that I won't forget everything before even starting
 #
 # INCOMPLETE/ON PROGRESS:
 #
@@ -26,6 +28,11 @@
 # - support multiple subtitles [high]
 # - accept paramenters [medium][after multiple subtitles supports]
 # - accept option file [medium][after paramenters]
+# - Escape filenames in batch scripts (bash scripts already escaped)
+#		See http://www.robvanderwoude.com/escapechars.php http://ss64.com/nt/syntax-esc.html
+# - Scripts also looking for source file in parent folder, and moving old file to parrent/old instead of parent/patch/old
+# - Rewrite all applying script for batch a.k.a "apply all" scripts
+# - Make a separated create patch script (not in repo)
 
 import sys, os, time
 
@@ -753,6 +760,7 @@ def addCrc32():
 # - Alternative, make a Python script to apply. It's Python, so everything can be done nicely. Most Linux/Unix/Mac installation
 # should have Python installed, so it's fine. On the other hand, most Windows ones don't. So bad.
 # You can just throw 9001 scripts in and tell users to try until it works ┐(´～`；)┌
+# Side note: thinking that "xdelta3 -d changes.vcdiff" is sufficient is simply naive, overwhelmingly naive.
 def createPatch():
 	import os, codecs, shutil
 
