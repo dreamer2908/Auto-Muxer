@@ -2,3 +2,4 @@
 
 --sub_Name Stinx by Eien(tm)
 --sub_Lang jpn
+--batch 1-3

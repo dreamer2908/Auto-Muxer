@@ -5,6 +5,8 @@
 # Use u'your string' if you're using Python 2. All strings in Python 3 are Unicode by default.
 
 # TODO:
+# - merge batch mode & normal mode [easy][soon(tm)]
+# - option to keep existing attachments, subtitles in video
 # - verify video format when searching [low].
 # - write a not-so-useless readme [high]
 # - support winrar [low]
@@ -26,11 +28,12 @@
 # - support multiple subtitles [high]
 # - accept paramenters [medium][after multiple subtitles supports]
 # - accept option file [medium][after paramenters]
+# - mux batch --batch 1-3
 
 import sys, os, time
 
 programName = "Auto Muxer"
-programVer = "0.6"
+programVer = "0.7"
 programAuthor = "dreamer2908"
 
 # specify these 3 if application not found error occurs
@@ -62,13 +65,14 @@ terminalSupportUnicode = False
 nonAsciiParamsWorking = True
 
 # basic inputs. ALL STRINGS MUST BE UNICODE STRINGS
+batchMode = False
+batchEps = []
 episode = 1
-version = 3
-groupTag = u'(✿◠‿◠)'
-showName = u'Pupaaaaaaaaaaa'
-baseFolder = u'F:\\newlycomer\\2013-fuyu\\dunno\\Pupa\\$2ep$'
-baseFolder = u'/media/yumi/DATA/newlycomer/2013-fuyu/dunno/Pupa/$2ep$/'
-subtitles = [(u"Pupa ? $2ep$.ass", u"Powered by Engrish(tm)", u"eng"), (u"Pupa ? $2ep$ [alt].ass", u"Powered by zZz(tm)", u"jpn")]
+version = 1
+groupTag = u''
+showName = u''
+baseFolder = u''
+subtitles = [] # format like this [(u"Pupa ? $2ep$.ass", u"Powered by Engrish(tm)", u"eng"), (u"Pupa ? $2ep$ [alt].ass", u"Powered by zZz(tm)", u"jpn")]
 video = u"*premux*"
 fonts = u"fonts" # the folder containing fonts inside base folder
 chapters = u"*chapter*"
@@ -653,6 +657,7 @@ def executeTask(params, taskName = ''):
 
 def premuxCleanup():
 	import shutil, os
+	global plsRemoveSameVersion, sameVersionFound, sameVersion
 
 	# sameVersion is an array of filename string
 	if plsRemoveSameVersion and sameVersionFound:
@@ -878,7 +883,7 @@ def createPatch():
 		targetFileMoved = False
 		sourceFileTmp = os.path.join(sourceFolder, 'sourceFileTmp')
 		targetFileTmp = os.path.join(targetFolder, 'targetFileTmp')
-		if not isPureAscii(sourceFile) and (nonAsciiParamsWorking or win32):
+		if not isPureAscii(sourceFile) and (not nonAsciiParamsWorking or win32):
 			try:
 				shutil.move(sourceFile, sourceFileTmp)
 				sourceFileMoved = True
@@ -887,7 +892,7 @@ def createPatch():
 			except:
 				doNothing = 1
 				writeToLog2("Couldn't moved sourceFile!")
-		if not isPureAscii(targetFile) and (nonAsciiParamsWorking or win32):
+		if not isPureAscii(targetFile) and (not nonAsciiParamsWorking or win32):
 			try:
 				shutil.move(targetFile, targetFileTmp)
 				targetFileMoved = True
@@ -932,6 +937,9 @@ def createPatch():
 			return True
 
 	global patchv2_Created, patchMux_Created, patchUndoMux_Created
+	patchv2_Created = False
+	patchMux_Created = False
+	patchUndoMux_Created = False
 
 	sourceFile = os.path.join(baseFolder, video)
 	oldVersion = os.path.join(baseFolder, previousVersion)
@@ -1236,7 +1244,6 @@ def printReadme():
 	print(' ')
 	print("Sorry! Readme hasn't been written!")
 
-
 # Arguments/paramenters and option files work as following:
 # Args from sys.argv and option files are combined in ariving order.
 # Options and their paramenters can be split into serveral parts.
@@ -1248,7 +1255,7 @@ def printReadme():
 # Finally, after everything is joined, parseArgsSub will parse them normally
 
 def applyOptionFile(fname):
-	parseArgsSub(parseOptionFile(args))
+	parseArgsSub(parseOptionFile(fname))
 
 def parseOptionFile(fname):
 	import codecs, os
@@ -1296,7 +1303,7 @@ def parseArgs():
 def parseArgsSub(args):
 	global mkvmergePath, xdelta3Path, sevenzipPath
 	global plsWriteLogs, logFileName
-	global episode, version, groupTag, showName
+	global episode, version, groupTag, showName, batchEps, batchMode
 	global baseFolder, subtitles, video, fonts, chapters, title, video_Name, video_Lang, audio_Name, audio_Lang, sub_Name, sub_Lang
 	global output_v1, output_v2, output_tmp
 	global patchv2_FolderName, patchMux_FolderName, patchUndoMux_FolderName
@@ -1426,6 +1433,16 @@ def parseArgsSub(args):
 			elif arg == 'logfilename' and i < argsCount - 1:
 				logFileName = toUnicodeStr(args[i+1])
 				i += 1
+			elif arg == 'batch' and i < argsCount - 1:
+				batchMode = True
+				eps = toUnicodeStr(args[i+1])
+				i += 1
+				tmp = eps.split('-')
+				if len(tmp) > 1:
+					start = int(tmp[0])
+					end = int(tmp[1])
+					for n in range(start, end + 1, 1):
+						batchEps.append(n)
 			# one without
 			elif  arg == 'plsaddcrc':
 				plsAddCrc = True
@@ -1453,7 +1470,8 @@ def parseArgsSub(args):
 				printAndLog('Unreconised paramenter: "%s"' % arg)
 
 		elif arg.startswith('-'):
-			doSomething = 1 # parse - short args
+			# parse - short args
+			arg = arg[1:].lower()
 			if arg == 'patch':
 				plsCreatePatch_v2 = True
 				plsCreatePatch_Mux = True
@@ -1477,77 +1495,147 @@ def toUnicodeStr(a):
 	# TODO: do something
 	return a
 
+varsBackup = {}
+def backupVars():
+	global varsBackup, baseFolder, subtitles, video, fonts, chapters, title, output, output_v1, output_v2, previousVersion, patchv2_FolderName, patchMux_FolderName, patchUndoMux_FolderName, subtitleArchive, patchMuxArchive, patchv2Archive, patchAllArchive, fontList, fontList_Name, previousVersion, previousVersionFound, output, sameVersion, sameVersionFound
+	varsBackup['baseFolder'] = baseFolder
+	varsBackup['subtitles'] = subtitles
+	varsBackup['video'] = video
+	varsBackup['fonts'] = fonts
+	varsBackup['chapters'] = chapters
+	varsBackup['title'] = title
+	varsBackup['output'] = output
+	varsBackup['output_v1'] = output_v1
+	varsBackup['output_v2'] = output_v2
+	varsBackup['previousVersion'] = previousVersion
+	varsBackup['patchv2_FolderName'] = patchv2_FolderName
+	varsBackup['patchMux_FolderName'] = patchMux_FolderName
+	varsBackup['patchUndoMux_FolderName'] = patchUndoMux_FolderName
+	varsBackup['subtitleArchive'] = subtitleArchive
+	varsBackup['patchMuxArchive'] = patchMuxArchive
+	varsBackup['patchv2Archive'] = patchv2Archive
+	varsBackup['patchAllArchive'] = patchAllArchive
+	varsBackup['fontList'] = fontList
+	varsBackup['fontList_Name'] = fontList_Name
+	varsBackup['previousVersion'] = previousVersion
+	varsBackup['previousVersionFound'] = previousVersionFound
+	varsBackup['output'] = output
+	varsBackup['sameVersion'] = sameVersion
+	varsBackup['sameVersionFound'] = sameVersionFound
+
+def restoreVars():	
+	global varsBackup, baseFolder, subtitles, video, fonts, chapters, title, output, output_v1, output_v2, previousVersion, patchv2_FolderName, patchMux_FolderName, patchUndoMux_FolderName, subtitleArchive, patchMuxArchive, patchv2Archive, patchAllArchive, fontList, fontList_Name, previousVersion, previousVersionFound, output, sameVersion, sameVersionFound
+	baseFolder = varsBackup['baseFolder']
+	subtitles = varsBackup['subtitles']
+	video = varsBackup['video']
+	fonts = varsBackup['fonts']
+	chapters = varsBackup['chapters']
+	title = varsBackup['title']
+	output = varsBackup['output']
+	output_v1 = varsBackup['output_v1']
+	output_v2 = varsBackup['output_v2']
+	previousVersion = varsBackup['previousVersion']
+	patchv2_FolderName = varsBackup['patchv2_FolderName']
+	patchMux_FolderName = varsBackup['patchMux_FolderName']
+	patchUndoMux_FolderName = varsBackup['patchUndoMux_FolderName']
+	subtitleArchive = varsBackup['subtitleArchive']
+	patchMuxArchive = varsBackup['patchMuxArchive']
+	patchv2Archive = varsBackup['patchv2Archive']
+	patchAllArchive = varsBackup['patchAllArchive']
+	fontList = varsBackup['fontList']
+	fontList_Name = varsBackup['fontList_Name']
+	previousVersion = varsBackup['previousVersion']
+	previousVersionFound = varsBackup['previousVersionFound']
+	output = varsBackup['output']
+	sameVersion = varsBackup['sameVersion']
+	sameVersionFound = varsBackup['sameVersionFound']
+
+def muxProcess():
+	global dontmux, plsRemoveSameVersion, sameVersionFound, muxParams, stopAfterMuxing
+
+	backupVars()
+
+	getInputList()
+	checkSanity()
+	generateMuxCmd()
+
+	if dontMux:
+		return
+
+	# run premuxing cleanup (same versions, etc.)
+	if plsRemoveSameVersion and sameVersionFound:
+		printAndLog('Removing same-version file(s)...')
+		premuxCleanup()
+
+	# Muxing
+	startTime = defaultTimer()
+
+	try:
+		notice = 'Muxing episode %d version %d...' % (episode, version)
+	except:
+		notice = 'Muxing episode %s version %d' % (episode, version)
+	printAndLog(notice)
+	muxInfo, muxReturnCode, muxError = executeTask(muxParams)
+	if muxError:
+		printAndLog('Error occured!\n')
+		printAndLog(muxInfo)
+
+	endTime = defaultTimer()
+	muxTime = endTime - startTime
+
+	if stopAfterMuxing:
+		printAndLog('\nStopped by user request.')
+		sys.exit()
+
+	# adding CRC-32
+	printAndLog('Adding CRC-32...')
+	startTime = defaultTimer()
+	addCrc32()
+	endTime = defaultTimer()
+	crcTime = endTime - startTime
+
+	# patches
+	startTime = defaultTimer()
+	printAndLog('Creating patches...')
+	createPatch()
+	endTime = defaultTimer()
+	patchTime = endTime - startTime
+
+	# packing
+	startTime = defaultTimer()
+	printAndLog('Packing subtitle and patches...')
+	packFiles()
+	endTime = defaultTimer()
+	packTime = endTime - startTime
+
+	# print file info
+	startTime = defaultTimer()
+	printAndLog('Getting file info...\n')
+	printFileInfo()
+	endTime = defaultTimer()
+	infoTime = endTime - startTime
+
+	printAndLog(' ') # new line.
+	printAndLog('Muxing took %0.3f seconds.' % muxTime)
+	printAndLog('Adding CRC-32 took %0.3f seconds.' % crcTime)
+	printAndLog('Patching took %0.3f seconds.' % patchTime)
+	printAndLog('Packing took %0.3f seconds.' % packTime)
+	printAndLog('Getting info took %0.3f seconds.' % infoTime)
+	printAndLog('\nTotal: %0.3f seconds.\n' % (muxTime + crcTime + patchTime + packTime + infoTime))
+
+	restoreVars()
+
 if testing:
-	parseOptionFile('sample_option_file.txt')
+	applyOptionFile('sample_option_file.txt')
 
 parseArgs()
 initStuff()
-getInputList()
-checkSanity()
-generateMuxCmd()
 
-if dontMux:
-	sys.exit()
-
-# run premuxing cleanup (same versions, etc.)
-if plsRemoveSameVersion and sameVersionFound:
-	printAndLog('Removing same-version file(s)...')
-	premuxCleanup()
-
-# Muxing
-startTime = defaultTimer()
-
-try:
-	notice = 'Muxing episode %d version %d...' % (episode, version)
-except:
-	notice = 'Muxing episode %s version %d' % (episode, version)
-printAndLog(notice)
-muxInfo, muxReturnCode, muxError = executeTask(muxParams)
-if muxError:
-	printAndLog('Error occured!\n')
-	printAndLog(muxInfo)
-
-endTime = defaultTimer()
-muxTime = endTime - startTime
-
-if stopAfterMuxing:
-	printAndLog('\nStopped by user request.')
-	sys.exit()
-
-# adding CRC-32
-printAndLog('Adding CRC-32...')
-startTime = defaultTimer()
-addCrc32()
-endTime = defaultTimer()
-crcTime = endTime - startTime
-
-# patches
-startTime = defaultTimer()
-printAndLog('Creating patches...')
-createPatch()
-endTime = defaultTimer()
-patchTime = endTime - startTime
-
-# packing
-startTime = defaultTimer()
-printAndLog('Packing subtitle and patches...')
-packFiles()
-endTime = defaultTimer()
-packTime = endTime - startTime
-
-# print file info
-startTime = defaultTimer()
-printAndLog('Getting file info...\n')
-printFileInfo()
-endTime = defaultTimer()
-infoTime = endTime - startTime
-
-printAndLog(' ') # new line.
-printAndLog('Muxing took %0.3f seconds.' % muxTime)
-printAndLog('Adding CRC-32 took %0.3f seconds.' % crcTime)
-printAndLog('Patching took %0.3f seconds.' % patchTime)
-printAndLog('Packing took %0.3f seconds.' % packTime)
-printAndLog('Getting info took %0.3f seconds.' % infoTime)
-printAndLog('\nTotal: %0.3f seconds.\n' % (muxTime + crcTime + patchTime + packTime + infoTime))
+if batchMode:
+	for i in batchEps:
+		episode = i
+		muxProcess()
+else:
+	muxProcess()
 
 cleanUp()
