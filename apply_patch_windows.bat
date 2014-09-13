@@ -38,10 +38,24 @@ if not exist "%sourcefile%" (
 		set "targetfile=..\%targetfile%"
 		set "olddir=..\%olddir%"
 		(call )
-	) else ( 
-		echo Error: Source file "%sourcefile%" not found.
-		echo You must put it in the same folder as this script.
-		(call)
+	) else (
+		if exist "..\..\%sourcefile%" (
+			set "sourcefile=..\..\%sourcefile%"
+			set "targetfile=..\..\%targetfile%"
+			set "olddir=..\..\%olddir%"
+			(call )
+		) else ( 
+			if exist "..\..\..\%sourcefile%" (
+				set "sourcefile=..\..\..\%sourcefile%"
+				set "targetfile=..\..\..\%targetfile%"
+				set "olddir=..\..\..\%olddir%"
+				(call )
+			) else ( 
+				echo Error: Source file "%sourcefile%" not found.
+				echo You must put it in the same folder as this script.
+				(call)
+			)
+		)
 	)
 ) else (
 	(call )
