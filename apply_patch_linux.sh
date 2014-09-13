@@ -52,10 +52,22 @@ find_inputs() {
 			targetfile="../$targetfile"
 			olddir="../$olddir"
 		else
-			echo "Error: Source file not found."
-			echo "The file \"$sourcefile\" must be in the same folder as this script."
-			cd "$WORKINGDIR"
-			return 1
+			if [ -f "../../$sourcefile" ]; then
+				sourcefile="../../$sourcefile"
+				targetfile="../../$targetfile"
+				olddir="../../$olddir"
+			else
+				if [ -f "../../../$sourcefile" ]; then
+					sourcefile="../../../$sourcefile"
+					targetfile="../../../$targetfile"
+					olddir="../../../$olddir"
+				else
+					echo "Error: Source file not found."
+					echo "The file \"$sourcefile\" must be in the same folder as this script."
+					cd "$WORKINGDIR"
+					return 1
+				fi
+			fi
 		fi
 	fi
 	if [ ! -f "$changes" ]; then
