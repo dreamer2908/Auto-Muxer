@@ -785,11 +785,29 @@ def createPatch():
 				result += char
 		return result
 
-	def generateApplyScripts(outputFolder, sourceFile, targetFile):
+	# single quotes are used, so the only character needing quoting is the single quote itself
+	def escapseStringForBash(text):
+		return text.replace("'", "'\"'\"'")
 
+	def generateApplyScripts(outputFolder, sourceFile, targetFile):
+		# As a side note, as long as the template apply_patch_* files have the correct EOL, the output files will also do. 
+		# In current code, to be precise. I forgot what works and what doesn't.
 		# Linux/Mac bash scripts can be UTF-8. Should work fine in recent distros for both pure ascii and non-ascii source/target.
+		applyScripts = ['apply_patch_linux.sh', 'apply_patch_mac.command']
+		for s in applyScripts:
+			src = os.path.join(repo, s)
+			targ = os.path.join(outputFolder, s)
+			if os.path.isfile(src):
+				f = codecs.open(src, "r", "utf-8")
+				f2 = codecs.open(targ, 'w', 'utf-8')
+				content = f.read()
+				f.close()
+				content = content.replace(u'&sourcefile&', escapseStringForBash(sourceFile)).replace(u'&targetfile&', escapseStringForBash(targetFile))
+				f2.write(content)
+				f2.close()
+
 		# how_to_apply_this_patch.txt goes here, too
-		applyScripts = ['apply_patch_linux.sh', 'apply_patch_mac.command', 'how_to_apply_this_patch.txt']
+		applyScripts = ['how_to_apply_this_patch.txt']
 		for s in applyScripts:
 			src = os.path.join(repo, s)
 			targ = os.path.join(outputFolder, s)
@@ -803,12 +821,7 @@ def createPatch():
 				f2.close()
 
 		# Windows script is a pain
-		if (isPureAscii(sourceFile) and isPureAscii(targetFile)) and not forceNonAsciiMode:
-			painScripts = 'apply_patch_windows.bat'
-		else:
-			painScripts = 'apply_patch_windows_for_non_ascii.bat'
-
-		src = os.path.join(repo, painScripts)
+		src = os.path.join(repo, 'apply_patch_windows.bat')
 		targ = os.path.join(outputFolder, 'apply_patch_windows.bat')
 		if os.path.isfile(src):
 			f = codecs.open(src, "r", "utf-8")
@@ -820,6 +833,8 @@ def createPatch():
 				content = content.replace(u'set movesourcefile=0', u'set movesourcefile=1')
 			if not (isPureAscii(targetFile)) or forceNonAsciiMode:
 				content = content.replace(u'set movetargetfile=0', u'set movetargetfile=1')
+			if isPureAscii(sourceFile) and isPureAscii(targetFile) and not forceNonAsciiMode:
+				content = content.replace('chcp 65001', '') # don't switch to utf-8 code page in pure ascii mode
 			f2.write(content)
 			f2.close()
 
@@ -1108,13 +1123,23 @@ def hasher(fileName):
 def printFileInfo():
 	import os
 
+	def byteToHumanSize(size):
+		if size >= 1000 * 1024 * 1024:
+			return '%0.3f GiB' % (size / (1024 ** 3))
+		elif size >= 1000 * 1024:
+			return '%0.3f MiB' % (size / 1024 ** 2)
+		elif size >= 1000:
+			return '%0.3f KiB' % (size / 1024)
+		else:
+			return '%s bytes' % size
+
 	fileSize = os.path.getsize(output)
 	dummy, name = os.path.split(output)
 	crc32, md4, md5, sha1, sha256, sha512, ed2k, error = hasher(output)
 
 	if error == False:
 		printAndLog('Filename: %s' % name)
-		printAndLog('Size: %0.1f MB (%d bytes)' % (fileSize / (1000 * 1000), fileSize))
+		printAndLog('Size: %s (%d bytes)' % (byteToHumanSize(fileSize), fileSize))
 		printAndLog('CRC-32: %s' % crc32)
 		printAndLog('MD5: %s' % md5)
 		printAndLog('SHA-1: %s' % sha1)

@@ -1,13 +1,19 @@
+
 @echo off
 setlocal
 
 rem Roses are red, violets are blue, sugar is sweet, and so are you.
 rem Enjoy your usual ratio: 5% of lines do the actual work, and the rest are there to make sure they work. (It's like 1%, actually)
 
+chcp 65001
 set sourcefile=&sourcefile&
 set targetfile=&targetfile&
 set app=xdelta3.exe
 set changes=changes.vcdiff
+set sourcefiletmp=sourcefile.tmp
+set targetfiletmp=targetfile.tmp
+set movesourcefile=0
+set movetargetfile=0
 set olddir=old
 set WORKINGDIR=%CD%
 chdir /d %~dp0
@@ -16,6 +22,7 @@ chdir /d %~dp0
 call :find_xdelta3 && call :find_inputs && call :check_target_file && call :run_patch
 call :gtfo
 goto :eof
+
 
 :find_xdelta3
 (call)
@@ -36,18 +43,24 @@ if not exist "%sourcefile%" (
 	if exist "..\%sourcefile%" (
 		set "sourcefile=..\%sourcefile%"
 		set "targetfile=..\%targetfile%"
+		set "sourcefiletmp=..\sourcefile.tmp"
+		set "targetfiletmp=..\targetfile.tmp"
 		set "olddir=..\%olddir%"
 		(call )
 	) else (
 		if exist "..\..\%sourcefile%" (
 			set "sourcefile=..\..\%sourcefile%"
 			set "targetfile=..\..\%targetfile%"
+			set "sourcefiletmp=..\..\sourcefile.tmp"
+			set "targetfiletmp=..\..\targetfile.tmp"
 			set "olddir=..\..\%olddir%"
 			(call )
 		) else ( 
 			if exist "..\..\..\%sourcefile%" (
 				set "sourcefile=..\..\..\%sourcefile%"
 				set "targetfile=..\..\..\%targetfile%"
+				set "sourcefiletmp=..\..\..\sourcefile.tmp"
+				set "targetfiletmp=..\..\..\targetfile.tmp"
 				set "olddir=..\..\..\%olddir%"
 				(call )
 			) else ( 
@@ -85,7 +98,15 @@ goto :eof
 
 :run_patch
 echo Attempting to patch "%sourcefile%"...
-%app% -d -f -s "%sourcefile%" "%changes%" "%targetfile%"
+if %movesourcefile% equ 1 (
+	move "%sourcefile%" "%sourcefiletmp%" > nul
+) else (
+	set "sourcefiletmp=%sourcefile%"
+)
+if %movetargetfile% equ 0 set "targetfiletmp=%targetfile%"
+%app% -d -f -s "%sourcefiletmp%" "%changes%" "%targetfiletmp%"
+if %movesourcefile% equ 1 move "%sourcefiletmp%" "%sourcefile%" > nul
+if %movetargetfile% equ 1 move "%targetfiletmp%" "%targetfile%" > nul
 if exist "%targetfile%" (
 	mkdir %olddir% 2>nul
 	move "%sourcefile%" %olddir%
