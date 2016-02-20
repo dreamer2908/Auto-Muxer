@@ -5,7 +5,8 @@ setlocal
 rem Roses are red, violets are blue, sugar is sweet, and so are you.
 rem Enjoy your usual ratio: 5% of lines do the actual work, and the rest are there to make sure they work. (It's like 1%, actually)
 
-chcp 65001
+for /f "tokens=2 delims=:." %%x in ('chcp') do set cp=%%x
+chcp 65001>nul
 set sourcefile=&sourcefile&
 set targetfile=&targetfile&
 set app=xdelta3.exe
@@ -121,5 +122,6 @@ goto :eof
 
 :gtfo
 chdir /d %WORKINGDIR%
+chcp %cp%>nul
 (call )
 goto :eof
