@@ -452,8 +452,8 @@ def getInputList():
 			break
 		return None, False
 
-	printAndLog('Gathering inputs from folder "%s"...' % baseFolder)
 	fillInInputs()
+	printAndLog('Gathering inputs from folder "%s"...' % baseFolder)
 	error = False
 	warning = False
 	searched = False
