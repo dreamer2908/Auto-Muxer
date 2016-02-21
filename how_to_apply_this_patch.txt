@@ -1,15 +1,20 @@
 Hi there! Yes, you!
 
 In short:
-- Move your original file (&sourcefile&) into this folder, or this folder's parent folder. For example: all these patches/scripts/bundled applications are in folder Entertain/Animu/Nourin/patch_ep_01_v2. You should put it in either patch_ep_01_v2, Nourin, Animu, or Entertain. These scripts will first look for it in patch_ep_01_v2; if it can't find it there, it will look in Nourin, and then Animu, and finally Entertain. If the file can't be found in these four location, the scripts will give up. Please don't troll these poor scripts. Thanks.
+- Move your original file (&sourcefile&) into this folder, or this folder's parent folder. For example: all these patches, scripts, xdelta3 binaries, how_to_appply_this_patch.txt are in folder Entertain/Animu/Nourin/patch_ep_01_v2. You should put it in either patch_ep_01_v2, Nourin, Animu, or Entertain. These scripts will first look for it in patch_ep_01_v2; if it can't find it there, it will look in Nourin, and then Animu, and finally Entertain. If the file can't be found in these four location, the scripts will give up. Please don't troll these poor scripts. Thanks.
 - Run the applying script written for your operating system: for Windows, apply_patch_windows.bat; for Linux/Unix, apply_patch_linux.sh; for Mac OSX, apply_patch_mac.command.
-- Check if a new file is created (&targetfile&). If it was, you're successful, so just stop here.
-- If it isn't, try the alternative script.
-- If even the alternative script fails, bug the person who gave you this patch. Do not bug me (the author of this script); it works in all my tests. If something goes wrong, it's either his/her or your own fault.
+- Check if a new file was created (&targetfile&). If true, you're successful, so stop here.
+- If not, try the alternative script and check the output again. Comment: if used correctly, only windows scripts in legacy versions of windows have some real chance of failure. Otherwise, it shouldn't fail at all.
+- If the alternative script fails, redo carefully from the first step.
+- If nothing worked, you can resort to manual patching.
+    + Move your original file (&sourcefile&) into this folder (the one where all these patches, scripts, xdelta3 binaries, how_to_appply_this_patch.txt are).
+    + Open Command Prompt (Windows) or Terminal (Linux, Unix, Mac OSX). Change working directory to this folder. On Windows Explorer, you might want to right click in a blank area while pressing Shift to quickly do this step.
+    + Copy and paste this line there, then press Enter: xdelta3 -d -f -s "&sourcefile&" "changes.vcdiff" "&targetfile&"
+    + Done. Hint to users who think they know how to use xdelta3 and insist to run "xdelta3 -d changes.vcdiff": filenames stored in changes.vcdiff are not guaranteed to be correct, as the patch might have been created in a different type of system (Win32 vs. Linux, Win32 vs. Mac OSX) so xdelta3 might be unable to decode these filenames, or it might have been created "funnily" where filenames are replaced with garbage.
 
 You might want to check for some system requirements:
 - A *working* computer.
-- A *working* and *modern* PC operating system (Windows, Linux, Unix, Mac OSX). I don't support WinXP or anything older, but patches might work fine.
+- A *working* and *modern* PC operating system (Windows, Linux, Unix, Mac OSX). WinXP or anything older is not officially supported, but patches might still work fine.
 - For Mac OSX: a guy has provided me with a Mac binary, but seriously, you should install xdelta3 package.
-- For Linux/Unix: either xdelta3 package installed, WinE package installed, or included Linux binaries' permission set to executable.
-- For Windows: nothing prevents the script from executing the binary file xdelta3.exe.
+- For Linux/Unix: either xdelta3 package installed, WinE package installed, or included Linux binaries' permission set to executable. Bash or dash; sh is not supported.
+- For Windows: nothing prevents the script from executing the binary file xdelta3.exe (stupid antivirus for example).
