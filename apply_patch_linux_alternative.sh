@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 set -o nounset
 set -o errexit
 
@@ -9,7 +9,7 @@ set -o errexit
 # (might not be correct, like tempSource.file, ???, or in the encoding it doesn't understand)
 
 WORKINGDIR=$(pwd)
-SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+SCRIPTDIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPTDIR"
 args="$@"
 
@@ -39,14 +39,14 @@ find_xdelta3() {
 }
 
 find_inputs() {
-	found=false
+	found=0
 	if [ ! -z "$args" ] && [ ! "$args" = " " ]; then
 		if [ -f "$args" ]; then
 			sourcefile=$@
-			found=true
+			found=1
 		else
 			echo "Warning: Input file \"$args\" is not found. Ignored."
-			found=false
+			found=0
 		fi
 	fi
 	if [ ! -f "$changes" ]; then

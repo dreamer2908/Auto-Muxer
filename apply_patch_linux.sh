@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 set -o nounset
 # Do not use errexit here
 
@@ -6,7 +6,7 @@ set -o nounset
 # Enjoy your usual ratio: 5% of lines do the actual work, and the rest are there to make sure they work. (It's like 1%, actually)
 
 WORKINGDIR=$(pwd)
-SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+SCRIPTDIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPTDIR"
 args="$@"
 
@@ -36,17 +36,17 @@ find_xdelta3() {
 }
 
 find_inputs() {
-	found=false
+	found=0
 	if [ ! -z "$args" ] && [ ! "$args" = " " ]; then
 		if [ -f "$args" ]; then
 			sourcefile=$@
-			found=true
+			found=1
 		else
 			echo "Warning: Input file \"$args\" is not found. Ignored."
-			found=false
+			found=0
 		fi
 	fi
-	if [ ! -f "$sourcefile" ] && [ $found == false ]; then
+	if [ ! -f "$sourcefile" ] && [ $found = 1 ]; then
 		if [ -f "../$sourcefile" ]; then
 			sourcefile="../$sourcefile"
 			targetfile="../$targetfile"
@@ -79,21 +79,6 @@ find_inputs() {
 	return 0
 }
 
-check_target_file() {
-	if [ -f "$targetfile" ]; then
-		echo "Target file \"$targetfile\" already exists."
-		if read -t 5 -p "Continue and overwrite? [y/n]" yn; then
-			if [[ $yn != y* ]]; then
-				echo "Aborted by user."
-				return 1
-			fi
-		else
-			echo "  User didn't answer. Continuing..."
-		fi
-	fi
-	return 0
-}
-
 run_patch () {
 	echo "Attempting to patch \"$sourcefile\"..."
 	`$app -d -f -s "$sourcefile" "$changes" "$targetfile"`
@@ -113,7 +98,7 @@ move_old_file () {
 	return 0
 }
 
-if find_xdelta3 && find_inputs && check_target_file; then
+if find_xdelta3 && find_inputs; then
 	if run_patch; then
 		if ! move_old_file; then
 			ignore=1

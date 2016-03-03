@@ -16,5 +16,6 @@ You might want to check for some system requirements:
 - A *working* computer.
 - A *working* and *modern* PC operating system (Windows, Linux, Unix, Mac OSX). WinXP or anything older is not officially supported, but patches might still work fine.
 - For Mac OSX: a guy has provided me with a Mac binary, but seriously, you should install xdelta3 package.
-- For Linux/Unix: either xdelta3 package installed, WinE package installed, or included Linux binaries' permission set to executable. Bash or dash; sh is not supported.
+- For Linux/Unix: either xdelta3 package installed, WinE package installed, or included Linux binaries' permission set to executable. Your shell should be Bash or dash; sh still works as long as you don't "source" the script.
 - For Windows: nothing prevents the script from executing the binary file xdelta3.exe (stupid antivirus for example).
+- Make sure that no program is accessing the original file (&sourcefile&) and any files in this patch. This is not a strict requirement, but patching might fail otherwise.
