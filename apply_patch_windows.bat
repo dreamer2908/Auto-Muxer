@@ -20,7 +20,7 @@ set WORKINGDIR=%CD%
 chdir /d %~dp0
 (call )
 
-call :find_xdelta3 && call :find_inputs && call :check_target_file && call :run_patch
+call :find_xdelta3 && call :find_inputs && call :run_patch
 call :gtfo
 goto :eof
 
@@ -78,22 +78,6 @@ if not exist "%changes%" (
 	echo Error: VCDIFF file \"$changes\" is missing.
 	echo Please extract everything from the archive.
 	(call)
-)
-goto :eof
-
-:check_target_file
-if exist "%targetfile%" (
-    echo Target file "%targetfile%" already exists.
-	choice /c yn /t 5 /d y /m "Continue and overwrite"
-	if errorlevel 2 (
-		echo Aborted by user.
-		(call)
-	) else (
-		echo Continuing...
-		(call )
-	)
-) else (
-	(call )
 )
 goto :eof
 
