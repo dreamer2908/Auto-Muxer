@@ -33,17 +33,14 @@ find_xdelta3() {
 }
 
 find_inputs() {
-	found=0
 	if [ ! -z "$args" ] && [ ! "$args" = " " ]; then
 		if [ -f "$args" ]; then
 			sourcefile=$@
-			found=1
 		else
 			echo "Warning: Input file \"$args\" is not found. Ignored."
-			found=0
 		fi
 	fi
-	if [ ! -f "$sourcefile" ] && [ $found = 1 ]; then
+	if [ ! -f "$sourcefile" ]; then
 		if [ -f "../$sourcefile" ]; then
 			sourcefile="../$sourcefile"
 			targetfile="../$targetfile"
