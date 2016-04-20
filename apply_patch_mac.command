@@ -17,7 +17,7 @@ olddir="old"
 
 find_xdelta3() {
 	chmod +x ./xdelta3_mac 2>/dev/null
-	if [ -x ./xdelta3_mac ] && file ./xdelta3_mac | grep -q "Mach-O"; then
+	if [ "x`uname -s`" = "xDarwin" ] && [ -x ./xdelta3_mac ] && file ./xdelta3_mac | grep -q "Mach-O"; then
 		app="./xdelta3_mac"
 	elif hash xdelta3 2>/dev/null; then
 		app="xdelta3"
@@ -76,7 +76,7 @@ find_inputs() {
 run_patch () {
 	echo "Attempting to patch \"$sourcefile\"..."
 	`$app -d -f -s "$sourcefile" "$changes" "$targetfile"`
-	return 0
+	return $?
 }
 
 move_old_file () {
@@ -84,10 +84,11 @@ move_old_file () {
 		mkdir -p "$olddir" >/dev/null
 		if mv "$sourcefile" "$olddir/"; then
 			echo "Moved the old file to directory \"$olddir\"."
+			return 0
 		else
 			echo "Warning: Couldn't moved the old file."
+			return 1
 		fi
-		return 0
 	fi
 	return 0
 }

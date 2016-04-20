@@ -20,7 +20,7 @@ olddir="old"
 
 find_xdelta3() {
 	chmod +x ./xdelta3_mac 2>/dev/null
-	if [ -x ./xdelta3_mac ] && file ./xdelta3_mac | grep -q "Mach-O"; then
+	if [ "x`uname -s`" = "xDarwin" ] && [ -x ./xdelta3_mac ] && file ./xdelta3_mac | grep -q "Mach-O"; then
 		app="./xdelta3_mac"
 	elif hash xdelta3 2>/dev/null; then
 		app="xdelta3"
@@ -59,10 +59,11 @@ run_patch () {
 	echo "Attempting to patch..."
 	if [ ! -z "$sourcefile" ] && [ ! "$sourcefile" = " " ]; then
 		`$app -d -f -s "$sourcefile" "$changes"`
+		return $?
 	else
 		`$app -d -f "$changes"`
+		return $?
 	fi
-	return 0
 }
 
 if find_xdelta3 && find_inputs; then
